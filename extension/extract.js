@@ -51,19 +51,47 @@
   }
 
   // --- konum -----------------------------------------------------------------
+  // DIKKAT: sayfada ilanin disinda da koordinat tasiyan ogeler var (orn. "en yakin
+  // magaza" reklam widget'i gizli bir input icinde kendi enlem/boylamini tutuyor).
+  // Bu yuzden ilk bulunan koordinat degil, ILANA AIT oldugu dogrulanabilen alinir.
   function coordinates() {
     const ok = (lat, lon) =>
       Number.isFinite(lat) && Number.isFinite(lon) &&
       lat >= TR.latMin && lat <= TR.latMax && lon >= TR.lonMin && lon <= TR.lonMax;
 
-    // 1) harita kabindaki data- nitelikleri
-    for (const el of document.querySelectorAll("[data-lat], [data-latitude]")) {
-      const lat = Number(el.getAttribute("data-lat") || el.getAttribute("data-latitude"));
+    const pairOf = (el) => {
+      const lat = Number(el.getAttribute("data-lat") ?? el.getAttribute("data-latitude"));
       const lon = Number(
-        el.getAttribute("data-lon") || el.getAttribute("data-lng") || el.getAttribute("data-longitude")
+        el.getAttribute("data-lon") ?? el.getAttribute("data-lng") ?? el.getAttribute("data-longitude")
       );
-      if (ok(lat, lon)) return { lat, lon, source: "data-attr" };
+      return ok(lat, lon) ? { lat, lon } : null;
+    };
+
+    // Reklam / "yakinindaki sube" bilesenlerini ele: bunlar ilanin konumu degil.
+    const suspicious = /store|magaza|maga|sube|branch|dealer|bayi|advert|sponsor|closest|nearest/i;
+    const isDecoy = (el) =>
+      (el.tagName === "INPUT" && el.type === "hidden") ||
+      suspicious.test(el.id || "") ||
+      suspicious.test(el.className || "") ||
+      suspicious.test(el.getAttribute("data-name") || "");
+
+    const candidates = Array.from(document.querySelectorAll("[data-lat], [data-latitude]"))
+      .map((el) => ({ el, pair: pairOf(el) }))
+      .filter((c) => c.pair && !isDecoy(c.el));
+
+    // 1a) Ilan kimligini tasiyan ya da harita kabi olan oge — en guvenilir kaynak.
+    const listingId = (location.pathname.match(/-(\d{7,})\/detay/) || [])[1];
+    const anchored = candidates.find(({ el }) => {
+      const owns = listingId && (el.getAttribute("data-classified-id") === listingId || el.getAttribute("data-id") === listingId);
+      const isMap = /(^|-)g?map/i.test(el.id || "") || /\bg?map\b/i.test(el.className || "");
+      return owns || isMap;
+    });
+    if (anchored) {
+      return { ...anchored.pair, source: "data-attr", anchor: anchored.el.id || anchored.el.className || "data-id" };
     }
+
+    // 1b) Supheli olmayan tek bir aday varsa onu kabul et; birden fazlaysa belirsiz say.
+    if (candidates.length === 1) return { ...candidates[0].pair, source: "data-attr", anchor: "tek-aday" };
     // 2) JSON-LD GeoCoordinates
     for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
       try {
@@ -107,10 +135,25 @@
     return out;
   }
 
+  // Kategori/konum yolu. Sayfadaki "Favori Aramalarim" gibi gezinme kutulari da
+  // breadcrumb'a benzer sinif adlari tasidigi icin once gercek yol kabi aranir.
+  const NAV_NOISE = /^(favori|karşılaştır|vazgeç|size özel|tümü|giriş|üye ol|ana ?sayfa)/i;
+
   function breadcrumb() {
-    const nav = document.querySelector("[class*='readcrumb'], ol[class*='readcrumb'], nav[class*='readcrumb']");
-    if (!nav) return [];
-    return Array.from(nav.querySelectorAll("a, li")).map(txt).filter(Boolean).slice(0, 12);
+    const containers = [
+      document.querySelector(".search-result-bc"),
+      document.querySelector("[class*='bc-item']") && document.querySelector("[class*='bc-item']").closest("ul"),
+      document.querySelector("nav[aria-label*='readcrumb' i], ol[class*='readcrumb'], ul[class*='readcrumb']"),
+    ].filter(Boolean);
+
+    for (const nav of containers) {
+      const parts = Array.from(nav.querySelectorAll("li"))
+        .map((li) => txt(li.querySelector("a span, a")) || txt(li))
+        .filter((s) => s && !NAV_NOISE.test(s));
+      const unique = Array.from(new Set(parts));
+      if (unique.length >= 2) return unique.slice(0, 12);
+    }
+    return [];
   }
 
   function images(limit = 40) {
@@ -126,12 +169,27 @@
     return Array.from(urls).slice(0, limit);
   }
 
-  // Sayfadaki en buyuk yaprak metin blogu: aciklama alani genelde budur.
-  function longestTextBlock() {
+  // Ilan aciklamasi. Once adi belli kaplar denenir; yoksa en buyuk yaprak metin
+  // blogu alinir. Ozellik listeleri (secili olmayan yuzlerce etiket) bu aramadan
+  // cikarilir, yoksa aciklama diye ozellik sozlugunu kaydederiz.
+  // Secici sirasi onemli: querySelectorAll birlesik listeyi belge sirasina gore
+  // dondururdu, o yuzden her secici ayri ayri ve oncelik sirasiyla denenir.
+  const DESCRIPTION_SELECTORS = ["#classifiedDescription", "[id*='escription']", "[class*='escription']"];
+  const NOT_DESCRIPTION = "#classifiedProperties, [id*='roperties'], [class*='roperties'], nav, header, footer";
+
+  function description() {
+    for (const selector of DESCRIPTION_SELECTORS) {
+      for (const el of document.querySelectorAll(selector)) {
+        if (el.closest(NOT_DESCRIPTION)) continue;
+        const t = clean(el.innerText);
+        if (t && t.length > 80) return t;
+      }
+    }
     let best = null;
     let bestLen = 0;
     document.querySelectorAll("div, section, article, p").forEach((el) => {
       if (el.querySelector("div, section, article")) return;
+      if (el.closest(NOT_DESCRIPTION)) return;
       const t = el.innerText || "";
       if (t.length > bestLen && t.length < 20000) {
         best = el;
@@ -236,7 +294,7 @@
       fields: normalizeFields(pairs),
       raw_pairs: pairs,
       ozellikler: selectedFeatures(),
-      aciklama: longestTextBlock(),
+      aciklama: description(),
       foto: images(),
       meta: metaTags(),
       json_ld: jsonLd(),

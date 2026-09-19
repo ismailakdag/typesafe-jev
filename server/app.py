@@ -8,17 +8,26 @@ Calistir:  uv run python -m server.app
 
 from __future__ import annotations
 
+import asyncio
 import json
+import os
 import re
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncIterator
 
 import uvicorn
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel, Field
+from typesafe_sdk import AsyncTypeSafeClient
+
+from server import analyzer
+
+load_dotenv()
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "ilanlar"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -103,6 +112,7 @@ def summarize(doc: dict[str, Any]) -> dict[str, Any]:
     """Listeleme icin son surumun ozeti; fiyat degisimi varsa isaretlenir."""
     latest = doc["captures"][-1]
     prices = [c.get("fiyat_tl") for c in doc["captures"] if c.get("fiyat_tl")]
+    foto = latest.get("foto") or []
     return {
         "id": doc["id"],
         "site": doc["site"],
@@ -114,6 +124,9 @@ def summarize(doc: dict[str, Any]) -> dict[str, Any]:
         "coords": latest.get("coords"),
         "konum_yolu": latest.get("konum_yolu", []),
         "fields": latest.get("fields", {}),
+        "aciklama": latest.get("aciklama"),
+        "kapak": foto[0] if foto else None,
+        "foto_sayisi": len(foto),
         "capture_count": len(doc["captures"]),
         "first_seen": doc.get("first_seen"),
         "last_seen": doc.get("last_seen"),
@@ -121,15 +134,146 @@ def summarize(doc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@app.get("/api/ilanlar")
-def list_ilanlar() -> dict[str, Any]:
+def all_summaries() -> list[dict[str, Any]]:
     docs = []
     for path in sorted(DATA_DIR.glob("*.json")):
         try:
             docs.append(summarize(json.loads(path.read_text(encoding="utf-8"))))
         except (json.JSONDecodeError, KeyError, IndexError):
             continue
+    return docs
+
+
+@app.get("/api/ilanlar")
+def list_ilanlar() -> dict[str, Any]:
+    docs = all_summaries()
     return {"count": len(docs), "ilanlar": docs}
+
+
+# --------------------------------------------------------------------------- #
+# Eleme: kod filtresi + Jev, sonuclar tamamlandikca akitilir
+# --------------------------------------------------------------------------- #
+
+class AnalyzeRequest(BaseModel):
+    max_fiyat: float | None = None
+    min_fiyat: float | None = None
+    min_m2: float | None = None
+    max_aidat: float | None = None
+    sadece_bos: bool = False
+    merkez: list[float] | None = None
+    yaricap_km: float | None = None
+    poligon: list[list[float]] | None = None
+    profil: str = "Günlük kullanım, uzun vadeli oturum"
+    oncelikler: str = "Ulaşım kolaylığı, düşük aidat, taşınmaya hazır olmak"
+    kirmizi_cizgiler: str = "Kiracılı teslim, tapu sorunu"
+    eszamanlilik: int = 8
+
+
+def line(payload: dict[str, Any]) -> str:
+    return json.dumps(payload, ensure_ascii=False) + "\n"
+
+
+async def analyze_stream(req: AnalyzeRequest) -> AsyncIterator[str]:
+    kriterler = analyzer.Kriterler(**req.model_dump(exclude={"eszamanlilik"}))
+    ilanlar = all_summaries()
+    yield line({"type": "start", "toplam": len(ilanlar)})
+
+    # 1. asama: kod filtresi. Anlik ve bedava; ne kadar surdugunu de olcuyoruz.
+    kod_basla = time.perf_counter()
+    kalanlar = []
+    for ilan in ilanlar:
+        eleme = analyzer.kod_filtresi(ilan, kriterler)
+        yield line({
+            "type": "kod",
+            "id": ilan["id"],
+            "gecti": eleme.gecti,
+            "neden": eleme.neden,
+            "mesafe_km": round(eleme.mesafe_km, 2) if eleme.mesafe_km is not None else None,
+        })
+        if eleme.gecti:
+            ilan["_mesafe_km"] = eleme.mesafe_km
+            kalanlar.append(ilan)
+    kod_ms = (time.perf_counter() - kod_basla) * 1000
+    yield line({"type": "kod_bitti", "ms": round(kod_ms, 2), "kalan": len(kalanlar), "elenen": len(ilanlar) - len(kalanlar)})
+
+    if not kalanlar:
+        yield line({"type": "bitti", "ozet": {"kod_ms": round(kod_ms, 2), "jev_ms": 0, "usd": 0, "kisa_liste": 0}})
+        return
+
+    if not os.getenv("TYPESAFE_API_KEY"):
+        yield line({"type": "hata", "mesaj": "TYPESAFE_API_KEY yok. .env dosyasına anahtarı ekleyip sunucuyu yeniden başlat."})
+        return
+
+    sorular = analyzer.sorular()
+    semaphore = asyncio.Semaphore(max(1, req.eszamanlilik))
+    jev_basla = time.perf_counter()
+
+    async with AsyncTypeSafeClient() as client:
+        async def degerlendir(ilan: dict[str, Any]) -> dict[str, Any]:
+            async with semaphore:
+                t0 = time.perf_counter()
+                try:
+                    cevap = await client.system_one(analyzer.durum(ilan, kriterler), sorular)
+                except Exception as error:  # ag, kota, dogrulama — ilani atlamak yerine bildir
+                    return {"type": "karar_hata", "id": ilan["id"], "baslik": ilan["baslik"], "mesaj": str(error)}
+                karar = analyzer.karar_ver(cevap)
+                return {
+                    "type": "karar",
+                    "id": ilan["id"],
+                    "sonuc": karar.sonuc,
+                    "skor": round(karar.skor, 4),
+                    "bayraklar": karar.bayraklar,
+                    "gerekce": karar.gerekce,
+                    "olcum": analyzer.olcum(t0, cevap.usage),
+                    "model": cevap.model,
+                    "detay": {
+                        "nouls": {k: round(v.noul, 3) for k, v in cevap.nouls.items()},
+                        "scores": {
+                            k: {"skor": round(v.score, 2), "guven": round(v.confidence, 3), "seviye": v.legend}
+                            for k, v in cevap.scores.items()
+                        },
+                        "choices": {
+                            k: {"secim": v.choice, "guven": round(v.confidence, 3),
+                                "olasiliklar": {kk: round(vv, 3) for kk, vv in v.probabilities.items()}}
+                            for k, v in cevap.choices.items()
+                        },
+                    },
+                }
+
+        gorevler = [asyncio.create_task(degerlendir(i)) for i in kalanlar]
+        yield line({"type": "jev_basladi", "adet": len(gorevler), "eszamanlilik": req.eszamanlilik})
+
+        toplam_usd = 0.0
+        toplam_token = 0
+        sayac = {"ele": 0, "kisa_liste": 0, "sana_sor": 0, "hata": 0}
+        for tamamlanan in asyncio.as_completed(gorevler):
+            sonuc = await tamamlanan
+            if sonuc["type"] == "karar":
+                toplam_usd += sonuc["olcum"]["usd"]
+                toplam_token += sonuc["olcum"]["input_tokens"]
+                sayac[sonuc["sonuc"]] += 1
+            else:
+                sayac["hata"] += 1
+            yield line(sonuc)
+
+    jev_ms = (time.perf_counter() - jev_basla) * 1000
+    yield line({
+        "type": "bitti",
+        "ozet": {
+            "kod_ms": round(kod_ms, 2),
+            "jev_ms": round(jev_ms, 1),
+            "toplam_ilan": len(ilanlar),
+            "jev_gorulen": len(kalanlar),
+            "input_tokens": toplam_token,
+            "usd": round(toplam_usd, 8),
+            **sayac,
+        },
+    })
+
+
+@app.post("/api/analyze")
+async def analyze(req: AnalyzeRequest) -> StreamingResponse:
+    return StreamingResponse(analyze_stream(req), media_type="application/x-ndjson")
 
 
 @app.get("/api/ilan/{rid}")
@@ -142,33 +286,7 @@ def get_ilan(rid: str) -> dict[str, Any]:
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
-    return """<!doctype html><meta charset="utf-8">
-<title>İlan Arşivi</title>
-<style>
- body{font:14px/1.5 -apple-system,"Segoe UI",Roboto,sans-serif;margin:32px;max-width:900px;color:#16191d}
- h1{font-size:20px} table{border-collapse:collapse;width:100%;margin-top:16px}
- th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e6e8ec;vertical-align:top}
- th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:#5b616b}
- .muted{color:#5b616b} code{background:#f4f5f7;padding:1px 5px;border-radius:4px}
-</style>
-<h1>İlan Arşivi</h1>
-<p class="muted">Eklenti buraya kayıt gönderiyor. Jev karşılaştırma arayüzü bir sonraki adımda.</p>
-<div id="out">Yükleniyor…</div>
-<script>
-fetch('/api/ilanlar').then(r=>r.json()).then(d=>{
-  if(!d.count){document.getElementById('out').innerHTML='<p class="muted">Henüz kayıt yok. Bir ilan sayfasında <b>Kaydet</b>\\'e bas.</p>';return}
-  const rows=d.ilanlar.map(i=>`<tr>
-    <td><a href="${i.url}" target="_blank" rel="noreferrer">${i.baslik??i.id}</a><br>
-        <span class="muted">${(i.konum_yolu||[]).slice(-3).join(' / ')}</span></td>
-    <td>${i.fiyat_tl?i.fiyat_tl.toLocaleString('tr-TR')+' TL':'<span class="muted">—</span>'}
-        ${i.fiyat_degisti?'<br><span class="muted">fiyat değişti</span>':''}</td>
-    <td>${i.fields.m2_brut??'—'} m²<br><span class="muted">${i.fields.oda_sayisi??''}</span></td>
-    <td>${i.coords?`<code>${i.coords.lat.toFixed(5)}, ${i.coords.lon.toFixed(5)}</code><br><span class="muted">${i.coords.source}</span>`:'<span class="muted">konum yok</span>'}</td>
-    <td class="muted">${i.capture_count} sürüm</td></tr>`).join('');
-  document.getElementById('out').innerHTML=
-    `<p>${d.count} ilan</p><table><tr><th>İlan</th><th>Fiyat</th><th>Alan</th><th>Konum</th><th></th></tr>${rows}</table>`;
-});
-</script>"""
+    return (Path(__file__).resolve().parent / "ui.html").read_text(encoding="utf-8")
 
 
 if __name__ == "__main__":
