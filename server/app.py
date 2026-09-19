@@ -729,6 +729,11 @@ def oyun_sayfasi() -> str:
     return (Path(__file__).resolve().parent / "oyun.html").read_text(encoding="utf-8")
 
 
+@app.get("/yazarken", response_class=HTMLResponse)
+def yazarken_sayfasi() -> str:
+    return (Path(__file__).resolve().parent / "yazarken.html").read_text(encoding="utf-8")
+
+
 @app.get("/akis/{rid}", response_class=HTMLResponse)
 def akis(rid: str) -> str:
     """Arsivdeki bir ilanin kararini akis olarak oynatir.

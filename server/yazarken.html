@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yazarken — canlı denetim</title>
+<style>
+:root{
+  color-scheme: light;
+  --surface:#fcfcfb; --plane:#f9f9f7; --raise:#fff;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --line:#e1e0d9; --ring:rgba(11,11,11,.10);
+  --good:#0ca30c; --warning:#fab219; --critical:#d03b3b;
+  --seq:#2a78d6; --seq-soft:#cde2fb;
+  --shadow:0 1px 2px rgba(11,11,11,.04), 0 8px 24px rgba(11,11,11,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --surface:#1a1a19; --plane:#0d0d0d; --raise:#222221;
+    --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
+    --line:#2c2c2a; --ring:rgba(255,255,255,.10);
+    --seq:#3987e5; --seq-soft:#184f95;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;gap:14px;padding:0 20px;height:54px;
+  background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:9}
+header h1{font-size:15px;font-weight:650;margin:0}
+.muted{font-size:12.5px;color:var(--muted)}
+.spacer{margin-left:auto}
+a.ghost,button.ghost{border:1px solid var(--ring);background:var(--surface);color:var(--ink);
+  border-radius:8px;padding:6px 11px;font:inherit;font-size:12.5px;cursor:pointer;text-decoration:none}
+a.ghost:hover,button.ghost:hover{background:var(--plane)}
+
+.wrap{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:16px;padding:16px;
+  align-items:start}
+@media (max-width:920px){.wrap{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;
+  box-shadow:var(--shadow)}
+.sec{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  font-weight:650;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+
+#metin{width:100%;min-height:440px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;
+  background:var(--raise);color:var(--ink);font:15px/1.75 Georgia,"Times New Roman",serif;resize:vertical}
+#metin:focus{outline:2px solid var(--seq);outline-offset:-1px;border-color:transparent}
+.altbilgi{display:flex;gap:14px;flex-wrap:wrap;margin-top:9px;font-size:11.5px;color:var(--muted)}
+.altbilgi b{color:var(--ink-2);font-weight:600;font-variant-numeric:tabular-nums}
+
+.durum{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12.5px;color:var(--ink-2)}
+.nokta{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.nokta.calisiyor{background:var(--seq);animation:nabiz 1s ease-in-out infinite}
+.nokta.hazir{background:var(--good)}
+@keyframes nabiz{0%,100%{opacity:1}50%{opacity:.3}}
+
+.skor{display:flex;align-items:center;gap:12px;padding:13px 15px;border-radius:11px;
+  border:1px solid var(--line);background:var(--plane);margin-bottom:14px}
+.skor .buyuk{font-size:28px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.skor .alt{font-size:11.5px;color:var(--muted)}
+.skor.iyi{border-color:color-mix(in srgb,var(--good) 45%,transparent);
+  background:color-mix(in srgb,var(--good) 10%,var(--plane))}
+.skor.orta{border-color:color-mix(in srgb,var(--warning) 45%,transparent);
+  background:color-mix(in srgb,var(--warning) 12%,var(--plane))}
+.skor.kotu{border-color:color-mix(in srgb,var(--critical) 40%,transparent);
+  background:color-mix(in srgb,var(--critical) 9%,var(--plane))}
+
+.grup{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  font-weight:650;margin:14px 0 5px}
+.kontrol{display:grid;grid-template-columns:20px 1fr auto;gap:9px;align-items:center;
+  padding:6px 9px;border-radius:8px;font-size:12.5px;transition:background .2s}
+.kontrol.yandi{background:color-mix(in srgb,var(--critical) 10%,transparent)}
+.kontrol.yakin{background:color-mix(in srgb,var(--warning) 12%,transparent)}
+.kontrol .im{text-align:center;font-weight:700}
+.kontrol.temiz .im{color:var(--good);opacity:.45}
+.kontrol.yandi .im{color:var(--critical)}
+.kontrol.yakin .im{color:#8a6200}
+.kontrol.temiz{color:var(--muted)}
+.kontrol .deger{font:11px ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.olcum{display:flex;gap:13px;flex-wrap:wrap;margin-top:14px;padding-top:11px;
+  border-top:1px solid var(--line);font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--muted)}
+.ipucu{font-size:11.5px;color:var(--muted);line-height:1.55;margin-top:12px;
+  padding:10px 12px;border-radius:9px;background:var(--plane);border:1px solid var(--line)}
+.bos{color:var(--muted);font-size:12.5px;text-align:center;padding:26px 14px;
+  border:1.5px dashed var(--line);border-radius:11px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Yazarken</h1>
+  <span class="muted" id="ustbilgi">canlı denetim · yazmayı bırakınca çalışır</span>
+  <span class="spacer"></span>
+  <button class="ghost" id="ornek">Örnek metin</button>
+  <a class="ghost" href="/oyun">Oyun alanı</a>
+  <a class="ghost" href="/">Panel</a>
+</header>
+
+<div class="wrap">
+  <section class="panel">
+    <h2 class="sec">Taslak</h2>
+    <textarea id="metin" spellcheck="false" placeholder="Yazmaya başla. Boş satır bırakarak paragrafları ayır — denetim, imlecin bulunduğu paragrafı inceler."></textarea>
+    <div class="altbilgi">
+      <span><b id="s-kelime">0</b> kelime</span>
+      <span><b id="s-paragraf">0</b> paragraf</span>
+      <span><b id="s-uzun">0</b> uzun cümle <span class="muted">(35+ kelime, kodda sayılıyor)</span></span>
+      <span><b id="s-aktif">—</b>. paragraf inceleniyor</span>
+    </div>
+  </section>
+
+  <aside class="panel">
+    <div class="durum"><span class="nokta" id="nokta"></span><span id="durum">bekleniyor</span></div>
+    <div id="sonuc"><div class="bos">Bir paragraf yaz ve yazmayı bırak.<br>Denetim kendiliğinden çalışır.</div></div>
+  </aside>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+/* ---------------------------------------------------------------------------
+   30 kontrol, TEK cagri. Fiyat girdi tokenina gore oldugundan 30 soru sormakla
+   5 soru sormak neredeyse ayni tutuyor: metin bir kez gidiyor.
+   Sayisal olan hicbir sey Jev'e sorulmuyor — uzun cumle sayimi kodda.
+--------------------------------------------------------------------------- */
+const GRUPLAR = [
+  { ad: "Dayanak", sorular: [
+    ["dayanaksiz_iddia", "Dayanaksız iddia var", "Paragraf bir iddia öne sürüyor ama hiçbir dayanak, veri ya da kaynak göstermiyor."],
+    ["kaynaksiz_sayi", "Sayı kaynaksız", "Paragrafta bir sayı, oran veya istatistik geçiyor ve kaynağı belirtilmemiş."],
+    ["asiri_genelleme", "Aşırı genelleme", "Paragraf, sınırlarını belirtmeden 'her zaman', 'hiçbir', 'tüm' türünden mutlak bir genelleme yapıyor."],
+    ["otorite_yok", "Kaynak anılmamış", "Paragraf başkalarının çalışmasına atıfta bulunuyor ama kimin çalışması olduğunu söylemiyor."],
+  ]},
+  { ad: "Netlik", sorular: [
+    ["belirsiz_ozne", "Belirsiz özne", "Paragrafta eylemi kimin yaptığı belirsiz bırakılmış."],
+    ["mugalata", "Kaçamak dil", "Paragraf 'bir ölçüde', 'kısmen', 'genel olarak' gibi ifadelerle iddiayı belirsizleştiriyor."],
+    ["jargon", "Açıklanmamış terim", "Paragrafta teknik bir terim ilk kez kullanılıyor ve açıklanmamış."],
+    ["zamir_belirsiz", "Zamir karışık", "Paragraftaki bir zamirin neye işaret ettiği belirsiz."],
+    ["edilgen_yigini", "Edilgen yığını", "Paragraf ağırlıklı olarak edilgen çatıda yazılmış."],
+  ]},
+  { ad: "Yapı", sorular: [
+    ["cok_fikir", "Birden çok ana fikir", "Paragraf birbirinden bağımsız birden fazla ana fikir içeriyor."],
+    ["ilk_cumle_zayif", "Giriş cümlesi zayıf", "Paragrafın ilk cümlesi, paragrafın ne anlatacağını söylemiyor."],
+    ["sonuc_yok", "Bağlanmamış", "Paragraf bir sonuca ya da bir sonraki fikre bağlanmadan bitiyor."],
+    ["siralama_bozuk", "Sıralama bozuk", "Paragraftaki cümleler mantıklı bir sırada değil."],
+  ]},
+  { ad: "Tutarlılık", sorular: [
+    ["onceki_celiski", "Önceki metinle çelişiyor", "Paragraf, `onceki_metin` içinde söylenenlerle çelişiyor."],
+    ["tekrar", "Tekrar", "Paragraf, `onceki_metin` içinde zaten söylenmiş bir şeyi yeniden söylüyor."],
+    ["terim_tutarsiz", "Terim tutarsız", "Aynı kavram için `onceki_metin` içindekinden farklı bir terim kullanılmış."],
+  ]},
+  { ad: "Ton", sorular: [
+    ["asiri_iddiali", "Aşırı iddialı", "Paragraf, elindeki dayanağın izin verdiğinden daha kesin konuşuyor."],
+    ["asiri_ozur", "Aşırı çekingen", "Paragraf gereğinden fazla çekingen, kendi bulgusunu değersizleştiriyor."],
+    ["duygusal", "Duygusal dil", "Paragraf akademik olmayan, duygu yüklü bir dil kullanıyor."],
+    ["reklam_dili", "Pazarlama dili", "Paragraf, bilimsel anlatımdan çok pazarlama diline yakın."],
+  ]},
+];
+
+const SKORLAR = [
+  ["netlik", "Netlik", ["Ne dediği anlaşılmıyor", "Birkaç kez okuyunca anlaşılıyor",
+                        "Bir okuyuşta anlaşılıyor", "Tek cümlede özetlenebilecek kadar net"]],
+  ["dayanak_gucu", "Dayanak gücü", ["Hiç dayanak yok", "Dayanak var ama belirsiz",
+                                    "Dayanak açıkça gösterilmiş", "Dayanak gösterilmiş ve sınırları belirtilmiş"]],
+  ["katki", "Metne katkısı", ["Çıkarılsa hiçbir şey kaybolmaz", "Küçük bir ayrıntı ekliyor",
+                              "Anlatıyı ileri taşıyor", "Ana iddia için vazgeçilmez"]],
+];
+
+function soruListesi(){
+  const s = [];
+  for (const g of GRUPLAR)
+    for (const [ad, , yonerge] of g.sorular)
+      s.push({ad, tip:"noul", instructions: yonerge});
+  for (const [ad, , seviyeler] of SKORLAR)
+    s.push({ad, tip:"score", instructions:`Bu paragrafın "${ad.replace(/_/g," ")}" bakımından değerlendirilmesi.`,
+            seviyeler});
+  return s;
+}
+const TOPLAM_SORU = soruListesi().length;
+$("ustbilgi").textContent = `canlı denetim · ${TOPLAM_SORU} kontrol, tek çağrı`;
+
+/* --- metin bolme -------------------------------------------------------- */
+const paragraflar = (t) => t.split(/\n\s*\n/).map(p => p.trim());
+
+function aktifParagraf(){
+  const t = $("metin").value, k = $("metin").selectionStart;
+  const parcalar = t.split(/\n\s*\n/);
+  let yer = 0;
+  for (let i = 0; i < parcalar.length; i++){
+    const son = yer + parcalar[i].length;
+    if (k <= son || i === parcalar.length - 1)
+      return {n: i, metin: parcalar[i].trim(), onceki: parcalar.slice(0, i).join("\n\n").trim()};
+    yer = son + 2;
+  }
+  return {n: 0, metin: t.trim(), onceki: ""};
+}
+
+/* Sayisal olan her sey kodda: uzun cumle saymak modele sorulmaz. */
+function sayimlar(){
+  const t = $("metin").value;
+  const kelime = (t.match(/\S+/g) ?? []).length;
+  const par = paragraflar(t).filter(Boolean).length;
+  const uzun = (t.match(/[^.!?]+[.!?]/g) ?? [])
+    .filter(c => (c.match(/\S+/g) ?? []).length >= 35).length;
+  $("s-kelime").textContent = kelime;
+  $("s-paragraf").textContent = par;
+  $("s-uzun").textContent = uzun;
+}
+
+/* --- denetim ------------------------------------------------------------ */
+let zamanlayici = null, calisiyor = false, sonGonderilen = "", cagri = 0, toplamUsd = 0, toplamMs = 0;
+
+function durum(metin, sinif){ $("durum").textContent = metin; $("nokta").className = "nokta " + (sinif ?? ""); }
+
+async function denetle(){
+  const p = aktifParagraf();
+  $("s-aktif").textContent = p.metin ? p.n + 1 : "—";
+  if (!p.metin || p.metin.length < 60){ durum("paragraf çok kısa"); return; }
+  if (p.metin === sonGonderilen || calisiyor) return;
+
+  calisiyor = true; sonGonderilen = p.metin;
+  durum(`${TOPLAM_SORU} kontrol çalışıyor…`, "calisiyor");
+
+  const t0 = performance.now();
+  let y;
+  try {
+    const r = await fetch("/api/oyun", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        state: {paragraf: p.metin, onceki_metin: p.onceki.slice(-4000) || "(bu ilk paragraf)"},
+        sorular: soruListesi(),
+      })});
+    y = await r.json();
+    if (!r.ok) throw new Error(y.detail ?? "hata");
+  } catch (e){
+    calisiyor = false; durum("olmadı: " + e.message); return;
+  }
+  const gidisDonus = Math.round(performance.now() - t0);
+  calisiyor = false;
+  cagri++; toplamUsd += y.olcum.usd; toplamMs += y.olcum.ms;
+  durum(`hazır · ${p.n + 1}. paragraf`, "hazir");
+  ciz(y, gidisDonus);
+}
+
+function ciz(y, gidisDonus){
+  const c = y.cevaplar;
+  const yanan = [], yakin = [];
+  for (const g of GRUPLAR) for (const [ad] of g.sorular){
+    const v = c[ad]?.deger ?? 0;
+    if (v > 0.6) yanan.push(ad); else if (v > 0.4) yakin.push(ad);
+  }
+
+  const puan = Math.round(100 * SKORLAR.reduce((a,[ad]) => a + (c[ad]?.skor ?? 0)/3, 0) / SKORLAR.length);
+  const sinif = yanan.length >= 3 || puan < 45 ? "kotu" : (yanan.length || puan < 65 ? "orta" : "iyi");
+
+  const grupHTML = GRUPLAR.map(g => {
+    const satirlar = g.sorular.map(([ad, etiket]) => {
+      const v = c[ad]?.deger ?? 0;
+      const durumSinif = v > 0.6 ? "yandi" : v > 0.4 ? "yakin" : "temiz";
+      const im = v > 0.6 ? "!" : v > 0.4 ? "~" : "✓";
+      return `<div class="kontrol ${durumSinif}"><span class="im">${im}</span>
+        <span>${etiket}</span><span class="deger">${v.toFixed(2)}</span></div>`;
+    }).join("");
+    return `<div class="grup">${g.ad}</div>${satirlar}`;
+  }).join("");
+
+  const skorHTML = SKORLAR.map(([ad, etiket]) => {
+    const s = c[ad];
+    if (!s) return "";
+    return `<div class="kontrol temiz" style="color:var(--ink-2)"><span class="im">•</span>
+      <span>${etiket}</span><span class="deger">${s.skor.toFixed(1)}/3</span></div>`;
+  }).join("");
+
+  $("sonuc").innerHTML = `
+    <div class="skor ${sinif}">
+      <div><div class="buyuk">${puan}</div><div class="alt">paragraf puanı</div></div>
+      <div class="alt">${yanan.length} uyarı yandı${yakin.length ? ` · ${yakin.length} sınırda` : ""}<br>
+        ${TOPLAM_SORU} kontrolün ${TOPLAM_SORU - yanan.length - yakin.length}'i temiz</div>
+    </div>
+    <div class="grup">Değerlendirme</div>${skorHTML}
+    ${grupHTML}
+    <div class="olcum">
+      <span>${y.olcum.ms} ms</span><span>ağ dahil ${gidisDonus}</span>
+      <span>${y.olcum.input_tokens} tok</span><span>$${y.olcum.usd.toFixed(6)}</span>
+    </div>
+    <div class="ipucu">
+      Bu turda <b>${TOPLAM_SORU} kontrol tek çağrıda</b> çalıştı. Oturum toplamı:
+      <b>${cagri} çağrı</b>, ortalama <b>${Math.round(toplamMs/cagri)} ms</b>,
+      toplam <b>$${toplamUsd.toFixed(5)}</b>.
+      Bu hızla bir saat kesintisiz yazsan yaklaşık
+      <b>$${(toplamUsd/cagri*120).toFixed(3)}</b> tutar.
+      <br><br>Kontrol sayısını 30'dan 60'a çıkarmak maliyeti iki katına çıkarmaz:
+      metin bir kez gidiyor, sorular onun üstüne az ekliyor.
+    </div>`;
+}
+
+/* --- olaylar ------------------------------------------------------------ */
+const tetikle = () => {
+  sayimlar();
+  clearTimeout(zamanlayici);
+  durum("yazıyorsun…");
+  zamanlayici = setTimeout(denetle, 900);   // yazmayı bırakınca
+};
+$("metin").addEventListener("input", tetikle);
+$("metin").addEventListener("click", () => { sayimlar(); clearTimeout(zamanlayici); zamanlayici = setTimeout(denetle, 400); });
+$("metin").addEventListener("keyup", e => { if (e.key.startsWith("Arrow")) { clearTimeout(zamanlayici); zamanlayici = setTimeout(denetle, 400); } });
+
+$("ornek").onclick = () => {
+  $("metin").value =
+`Yapay zeka destekli karar sistemleri son yıllarda her alanda kullanılmaktadır. Bu sistemlerin doğruluğu çok yüksektir ve insan kararlarından her zaman daha iyi sonuç vermektedir. Yapılan çalışmalar bunu açıkça göstermektedir.
+
+İkinci paragraf olarak şunu söyleyebiliriz ki, bir ölçüde ve kısmen de olsa, söz konusu sistemlerin bazı durumlarda genel olarak belirli sınırlılıkları olabileceği düşünülebilir. Bu konuda daha fazla araştırma yapılması gerektiği düşünülmektedir.
+
+Çalışmamızda 42 katılımcıdan veri toplandı. Katılımcıların %78'i sistemin kararını kabul etti. Bu oran, benzer çalışmalarda bildirilen değerlerle uyumludur (Yılmaz ve ark., 2024). Bulgular, sistemin kullanıcı güveni açısından kabul edilebilir düzeyde olduğunu göstermektedir.`;
+  sayimlar(); clearTimeout(zamanlayici); zamanlayici = setTimeout(denetle, 200);
+};
+
+sayimlar();
+</script>
+</body>
+</html>
