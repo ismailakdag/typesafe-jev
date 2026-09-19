@@ -59,6 +59,7 @@
 
   // --- anlik degerlendirme -------------------------------------------------
   let calisiyor = false;
+  let sonKarar = null;  // arsive kaydederken ilistirilir, akis gosteriminde kullanilir
 
   async function degerlendir() {
     if (calisiyor) return;
@@ -85,6 +86,7 @@
       return;
     }
 
+    sonKarar = y;
     const [ikon, etiket, sinif] = ROZET[y.sonuc] ?? ["", y.sonuc, ""];
     panel.classList.add(sinif);
     sub.textContent = `${record._extraction.pair_count} alan okundu · ${y.soru_sayisi} soru tek çağrıda`;
@@ -103,7 +105,12 @@
         <span>${y.olcum.ms} ms<small> (ağ dahil ${gidisDonus})</small></span>
         <span>${y.olcum.input_tokens} token</span>
         <span class="iy-usd">$${y.olcum.usd.toFixed(7)}</span>
-      </div>`;
+      </div>
+      <button id="iy-akis-ac" class="iy-btn iy-genis">Nasıl karar verdi? ▸</button>`;
+
+    sonuc.querySelector("#iy-akis-ac").addEventListener("click", () =>
+      window.__ilanAkis.goster(y, record.baslik)
+    );
 
     const t = y.toplam;
     const binTane = (t.usd / Math.max(t.cagri, 1)) * 1000;
@@ -120,7 +127,9 @@
     const record = oku();
     if (!record) { btn.disabled = false; return; }
     const d = record._extraction;
-    sub.textContent = `${d.pair_count} alan · ${d.photo_count} foto · konum: ${d.coords_source ?? "yok"} — kaydediliyor…`;
+    if (sonKarar) record.karar = { ...sonKarar, verildi: new Date().toISOString() };
+    sub.textContent = `${d.pair_count} alan · ${d.photo_count} foto`
+      + `${sonKarar ? " · karar da kaydediliyor" : ""} …`;
     const y = await gonder("capture", record);
     btn.disabled = false;
     if (!y.ok) {
@@ -128,7 +137,8 @@
       return;
     }
     const eksik = d.missing.length ? ` (eksik: ${d.missing.join(", ")})` : "";
-    sub.textContent = `Arşive kaydedildi — ${y.capture_count}. sürüm${eksik}`;
+    sub.textContent = `Arşive kaydedildi — ${y.capture_count}. sürüm`
+      + `${sonKarar ? " (kararıyla birlikte)" : ""}${eksik}`;
     btn.textContent = "Tekrar kaydet";
   });
 

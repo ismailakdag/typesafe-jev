@@ -79,6 +79,7 @@
 #iy-panel .iy-primary { background:var(--iy-ink); border-color:var(--iy-ink); color:var(--iy-surface); font-weight:650; }
 #iy-panel .iy-primary:hover { background:#2c3138; }
 #iy-panel .iy-btn:disabled { opacity:.5; cursor:default; }
+#iy-panel .iy-genis { width:100%; margin-bottom:10px; }
 
 #iy-panel .iy-auto {
   display:flex; align-items:center; gap:7px; margin-top:10px;

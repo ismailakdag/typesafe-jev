@@ -127,6 +127,7 @@ def summarize(doc: dict[str, Any]) -> dict[str, Any]:
         "aciklama": latest.get("aciklama"),
         "kapak": foto[0] if foto else None,
         "foto_sayisi": len(foto),
+        "karar": latest.get("karar"),
         "capture_count": len(doc["captures"]),
         "first_seen": doc.get("first_seen"),
         "last_seen": doc.get("last_seen"),
@@ -442,11 +443,17 @@ class HizliIstek(BaseModel):
     fields: dict[str, Any] = Field(default_factory=dict)
     konum_yolu: list[str] = Field(default_factory=list)
     fiyat_tl: float | None = None
+    kaydet: bool = False
 
 
 @app.post("/api/degerlendir")
 async def degerlendir(body: HizliIstek) -> dict[str, Any]:
-    """Tek bir ilani tek cagri ile degerlendirir. Arsive yazmaz."""
+    """Tek bir ilani tek cagri ile degerlendirir.
+
+    Asamalarin sureleri ayri ayri olculur: kararin nasil olustugunu adim adim
+    gosterebilmek icin uydurma degil gercek zamanlamalar gerekiyor.
+    `kaydet` verilirse ilan, karariyla birlikte arsive de yazilir.
+    """
     if not os.getenv("TYPESAFE_API_KEY"):
         raise HTTPException(status_code=400, detail="TYPESAFE_API_KEY tanımlı değil")
 
@@ -455,29 +462,71 @@ async def degerlendir(body: HizliIstek) -> dict[str, Any]:
         profil=p["profil"], oncelikler=p["oncelikler"], kirmizi_cizgiler=p["kirmizi_cizgiler"]
     )
     ilan = body.model_dump()
+    sorular = analyzer.sorular()
 
-    t0 = time.perf_counter()
+    t_bas = time.perf_counter()
+    state = analyzer.durum(ilan, kriterler)
+    t_state = time.perf_counter()
+
     async with AsyncTypeSafeClient() as client:
-        cevap = await client.system_one(analyzer.durum(ilan, kriterler), analyzer.sorular())
+        cevap = await client.system_one(state, sorular)
+    t_yanit = time.perf_counter()
+
     karar = analyzer.karar_ver(cevap)
-    olcum = analyzer.olcum(t0, cevap.usage)
+    t_karar = time.perf_counter()
+
+    ms = lambda a, b: round((b - a) * 1000, 1)  # noqa: E731
+    olcum = analyzer.olcum(t_bas, cevap.usage)
     toplam = ledger_yaz(olcum["input_tokens"], olcum["usd"], "anlik")
 
-    return {
+    sonuc = {
         "sonuc": karar.sonuc,
         "skor": round(karar.skor, 4),
         "bayraklar": karar.bayraklar,
         "gerekce": karar.gerekce,
+        "kapilar": karar.kapilar,
+        "terimler": karar.terimler,
+        "esikler": {
+            "bayrak": analyzer.BAYRAK_ESIGI, "kararsiz_alt": analyzer.KARARSIZ_ALT,
+            "skor": analyzer.SKOR_ESIGI, "guven": analyzer.GUVEN_ESIGI,
+        },
         "olcum": olcum,
+        "asamalar": {
+            "state_ms": ms(t_bas, t_state),
+            "model_ms": ms(t_state, t_yanit),
+            "karar_ms": ms(t_yanit, t_karar),
+        },
         "model": cevap.model,
         "soru_sayisi": len(cevap.answers),
         "toplam": {"cagri": toplam["cagri"], "usd": toplam["usd"], "input_tokens": toplam["input_tokens"]},
         "detay": {
             "nouls": {k: round(v.noul, 3) for k, v in cevap.nouls.items()},
-            "scores": {k: {"skor": round(v.score, 2), "guven": round(v.confidence, 3)} for k, v in cevap.scores.items()},
-            "choices": {k: {"secim": v.choice, "guven": round(v.confidence, 3)} for k, v in cevap.choices.items()},
+            "scores": {
+                k: {"skor": round(v.score, 2), "guven": round(v.confidence, 3),
+                    "seviye": v.legend, "olasiliklar": {str(kk): round(vv, 3) for kk, vv in v.probabilities.items()}}
+                for k, v in cevap.scores.items()
+            },
+            "choices": {
+                k: {"secim": v.choice, "guven": round(v.confidence, 3),
+                    "olasiliklar": {kk: round(vv, 3) for kk, vv in v.probabilities.items()}}
+                for k, v in cevap.choices.items()
+            },
         },
     }
+
+    if body.kaydet:
+        ham = body.model_dump()
+        ham.pop("kaydet", None)
+        ham["karar"] = {k: sonuc[k] for k in
+                        ("sonuc", "skor", "bayraklar", "gerekce", "kapilar", "terimler",
+                         "olcum", "asamalar", "model", "soru_sayisi", "detay", "esikler")}
+        ham["karar"]["verildi"] = datetime.now(timezone.utc).isoformat()
+        try:
+            sonuc["arsiv"] = capture(Capture(**ham))
+        except Exception as error:  # eksik alanla gelirse degerlendirme yine de donsun
+            sonuc["arsiv_hatasi"] = str(error)
+
+    return sonuc
 
 
 @app.get("/api/ilan/{rid}")
@@ -491,6 +540,51 @@ def get_ilan(rid: str) -> dict[str, Any]:
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     return (Path(__file__).resolve().parent / "ui.html").read_text(encoding="utf-8")
+
+
+EKLENTI_DIR = Path(__file__).resolve().parent.parent / "extension"
+
+
+@app.get("/akis/{rid}", response_class=HTMLResponse)
+def akis(rid: str) -> str:
+    """Arsivdeki bir ilanin kararini akis olarak oynatir.
+
+    Gosterim kodu eklentiyle ayni dosyadan okunur (extension/akis.js); iki yerde
+    ayri kopya tutulmuyor.
+    """
+    doc = load(SAFE_ID.sub("-", rid.lower()))
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Kayit bulunamadi")
+
+    karar = next((c.get("karar") for c in reversed(doc["captures"]) if c.get("karar")), None)
+    if karar is None:
+        raise HTTPException(status_code=404, detail="Bu ilanda kayitli bir karar yok — once degerlendir")
+
+    baslik = doc["captures"][-1].get("baslik") or rid
+    css = (EKLENTI_DIR / "akis.css").read_text(encoding="utf-8")
+    js = (EKLENTI_DIR / "akis.js").read_text(encoding="utf-8")
+    veri = json.dumps({"karar": karar, "baslik": baslik}, ensure_ascii=False)
+
+    return f"""<!doctype html><html lang="tr"><meta charset="utf-8">
+<title>Karar akışı — {baslik[:60]}</title>
+<style>{css}</style>
+<style>
+ body{{margin:0;height:100vh;background:#dfe3e8;font:14px system-ui,-apple-system,"Segoe UI",sans-serif}}
+ @media (prefers-color-scheme:dark){{body{{background:#0d0d0d}}}}
+ .ac{{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);padding:12px 22px;
+      border:0;border-radius:10px;background:#0b0b0b;color:#fff;font:inherit;font-weight:650;cursor:pointer}}
+</style>
+<body>
+<button class="ac" id="ac">Karar akışını aç</button>
+<script>{js}</script>
+<script id="veri" type="application/json">{veri}</script>
+<script>
+ const D = JSON.parse(document.getElementById("veri").textContent);
+ const ac = () => window.__ilanAkis.goster(D.karar, D.baslik);
+ document.getElementById("ac").addEventListener("click", ac);
+ ac();
+</script>
+</body></html>"""
 
 
 if __name__ == "__main__":

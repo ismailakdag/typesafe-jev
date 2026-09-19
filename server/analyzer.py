@@ -15,7 +15,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-from typesafe_sdk import Choice, Noul, Score
+from server.sorular import sorular as soru_seti
 
 # jev-1.13: girdi tokeni basina 0.042 USD / milyon. Cikti tokenlari ucretsiz.
 USD_PER_INPUT_TOKEN = 0.042 / 1_000_000
@@ -113,91 +113,7 @@ def kod_filtresi(ilan: dict[str, Any], k: Kriterler) -> Eleme:
 # Jev tarafi: yalnizca metinden cikan yargilar
 # --------------------------------------------------------------------------- #
 
-def sorular() -> dict[str, Any]:
-    return {
-        # --- kirmizi bayraklar: her biri ayri Noul, cunku birden fazlasi ayni anda dogru olabilir
-        "kiracili_ima": Noul(
-            instructions=(
-                "İlan metni, dairenin şu anda kiracılı olduğunu veya alıcıya kiracıyla "
-                "birlikte teslim edileceğini söylüyor ya da ima ediyor."
-            ),
-            criteria={
-                "true": "Metinde kiracı, kira kontratı, kiracılı teslim, gelir getiren gibi ifadeler geçiyor",
-                "false": "Metin boş/sıfır olduğunu söylüyor ya da kiracı konusuna hiç değinmiyor",
-            },
-        ),
-        "celiskili_bilgi": Noul(
-            instructions=(
-                "`yapilandirilmis_alanlar` içindeki bilgilerle `aciklama` metni birbiriyle çelişiyor. "
-                "Örnek: alanlarda 'Kullanım Durumu: Boş' yazarken açıklamada kiracıdan söz edilmesi, "
-                "ya da alanlarda yazan oda sayısı/kat bilgisinin açıklamada farklı verilmesi."
-            ),
-            criteria={
-                "true": "En az bir konuda alanlar ile açıklama birbirini tutmuyor",
-                "false": "Açıklama, yapılandırılmış alanlarla tutarlı ya da o konulara hiç değinmiyor",
-            },
-        ),
-        "metin_yetersiz": Noul(
-            instructions=(
-                "Açıklama metni, dairenin durumu hakkında karar vermeye yetecek bilgi içermiyor; "
-                "sadece genel reklam cümlelerinden oluşuyor."
-            ),
-        ),
-        # --- sinifllandirma
-        "satici_dili": Choice(
-            instructions=(
-                "`aciklama` metninin diline bakarak ilanı kimin yazdığını belirle. "
-                "`yapilandirilmis_alanlar.kimden` etiketini değil, metnin kendisini esas al."
-            ),
-            criteria={
-                "ev_sahibi": "Dairede oturan veya sahibi olan kişinin kendi ağzından anlatımı",
-                "emlak_ofisi": "Kurumsal emlak pazarlama dili, portföy/danışman anlatımı",
-                "belirsiz": "Metinden hangisi olduğu anlaşılmıyor",
-            },
-        ),
-        # --- dereceler
-        "konum_vaadi_somutlugu": Score(
-            instructions=(
-                "Açıklamadaki konum ve ulaşım iddialarının ne kadar somut olduğunu değerlendir. "
-                "İddiaların doğru olup olmadığını değil, ne kadar doğrulanabilir yazıldığını puanla."
-            ),
-            criteria=[
-                "Konumdan hiç söz edilmiyor",
-                "Sadece 'merkezi konumda', 'her yere yakın' gibi genel ifadeler var",
-                "Bazı yerlere mesafe verilmiş ama belirsiz",
-                "Adı verilmiş yerlere somut mesafe veya süre belirtilmiş",
-            ],
-        ),
-        "site_olanaklari": Score(
-            instructions="Açıklamada anlatılan site ve bina olanaklarının kapsamı.",
-            criteria=[
-                "Site veya ortak olanaktan söz edilmiyor",
-                "Temel düzeyde: güvenlik veya otopark var",
-                "Orta düzey: güvenlik, otopark ve en az bir sosyal alan",
-                "Geniş: havuz, spor salonu, çocuk alanı gibi birden çok sosyal olanak",
-            ],
-        ),
-        "profile_uygunluk": Score(
-            instructions=(
-                "İlanın, `alici_profili` içinde tarif edilen kullanım ve önceliklere uygunluğu. "
-                "Sadece açıklama ve yapılandırılmış alanlardaki bilgiye dayan."
-            ),
-            criteria=[
-                "Alıcının önceliklerine açıkça aykırı",
-                "Zayıf uyum: birkaç önceliği karşılıyor",
-                "İyi uyum: önceliklerin çoğunu karşılıyor",
-                "Tarif edilen kullanıma birebir uyuyor",
-            ],
-        ),
-        "satis_aciliyeti": Score(
-            instructions="Satıcının aciliyet düzeyi; pazarlık payı olup olmadığının sinyali.",
-            criteria=[
-                "Acele yok; pazarlık kabul edilmediği belirtilmiş",
-                "Normal bir satış ilanı",
-                "Acil satılık, takas olur, pazarlık payı var gibi ifadeler var",
-            ],
-        ),
-    }
+sorular = soru_seti  # sorular.py'de tanimli; burada yeniden disa aktariliyor
 
 
 def durum(ilan: dict[str, Any], k: Kriterler) -> dict[str, Any]:
@@ -220,7 +136,20 @@ def durum(ilan: dict[str, Any], k: Kriterler) -> dict[str, Any]:
 # Karar: kirmizi bayraklar ayri, tercihler agirlikli
 # --------------------------------------------------------------------------- #
 
-AGIRLIKLAR = {"profile_uygunluk": 0.45, "konum_vaadi_somutlugu": 0.20, "site_olanaklari": 0.20, "satis_aciliyeti": 0.15}
+AGIRLIKLAR = {
+    "profile_uygunluk": 0.35,
+    "ulasim_erisilebilirlik": 0.20,
+    "site_olanaklari": 0.15,
+    "bilgi_doygunlugu": 0.10,
+    "konum_vaadi_somutlugu": 0.10,
+    "satis_aciliyeti": 0.10,
+}
+
+
+BAYRAK_ESIGI = 0.6
+KARARSIZ_ALT = 0.35
+SKOR_ESIGI = 0.55
+GUVEN_ESIGI = 0.55
 
 
 @dataclass
@@ -229,6 +158,9 @@ class Karar:
     skor: float
     bayraklar: list[str] = field(default_factory=list)
     gerekce: list[str] = field(default_factory=list)
+    # Asagidakiler kararin nasil olustugunu adim adim gosterebilmek icin:
+    kapilar: list[dict[str, Any]] = field(default_factory=list)
+    terimler: list[dict[str, Any]] = field(default_factory=list)
 
 
 def karar_ver(cevaplar: Any) -> Karar:
@@ -236,36 +168,89 @@ def karar_ver(cevaplar: Any) -> Karar:
     scores = cevaplar.scores
     choices = cevaplar.choices
 
+    # --- 1. kapi: kirmizi bayraklar. Agirlikli skora karismaz; tek basina eler.
+    bayrak_tanimlari = [
+        ("kiracili_ima", "kiracılı olabilir"),
+        ("celiskili_bilgi", "bilgiler çelişkili"),
+    ]
     bayraklar: list[str] = []
-    if nouls["kiracili_ima"].noul > 0.6:
-        bayraklar.append("kiracılı olabilir")
-    if nouls["celiskili_bilgi"].noul > 0.6:
-        bayraklar.append("bilgiler çelişkili")
+    kapilar: list[dict[str, Any]] = []
+    for ad, etiket in bayrak_tanimlari:
+        deger = nouls[ad].noul
+        acik = deger > BAYRAK_ESIGI
+        kapilar.append({
+            "tur": "bayrak", "ad": ad, "etiket": etiket,
+            "deger": round(deger, 3), "esik": BAYRAK_ESIGI, "tetikledi": acik,
+            "kosul": f"> {BAYRAK_ESIGI}",
+        })
+        if acik:
+            bayraklar.append(etiket)
 
-    # Agirlikli skor: her Score kendi seviye sayisina gore 0-1'e normalize edilir.
+    # Choice tabanli bayrak: metin acikca kiracili teslim diyorsa Noul'dan bagimsiz eler.
+    teslim = choices["teslim_durumu"]
+    teslim_kiracili = teslim.choice == "kiracili" and teslim.confidence > 0.6
+    kapilar.append({
+        "tur": "bayrak", "ad": "teslim_durumu", "etiket": "metin kiracılı teslim diyor",
+        "deger": round(teslim.probabilities.get("kiracili", 0.0), 3), "esik": 0.6,
+        "tetikledi": teslim_kiracili, "secim": teslim.choice, "kosul": "seçim kiracılı ve güven > 0.6",
+    })
+    if teslim_kiracili and "kiracılı olabilir" not in bayraklar:
+        bayraklar.append("metin kiracılı teslim diyor")
+
+    # --- 2. agirlikli skor: her Score kendi seviye sayisina gore 0-1'e normalize edilir.
     skor = 0.0
+    terimler: list[dict[str, Any]] = []
     for ad, agirlik in AGIRLIKLAR.items():
         answer = scores[ad]
         en_ust = max(answer.probabilities)
-        skor += agirlik * (answer.score / en_ust if en_ust else 0.0)
+        normalize = (answer.score / en_ust) if en_ust else 0.0
+        katki = agirlik * normalize
+        skor += katki
+        terimler.append({
+            "ad": ad, "ham": round(answer.score, 2), "en_ust": en_ust,
+            "normalize": round(normalize, 4), "agirlik": agirlik,
+            "katki": round(katki, 4), "guven": round(answer.confidence, 3),
+        })
 
-    # Belirsizlik: dusuk guven ya da kararsiz Noul -> insana birak.
+    # --- 3. kapi: belirsizlik. Dusuk guven ya da kararsiz Noul -> insana birak.
     belirsiz: list[str] = []
-    if choices["satici_dili"].confidence < 0.55:
+    guven = choices["satici_dili"].confidence
+    kapilar.append({
+        "tur": "belirsizlik", "ad": "satici_dili", "etiket": "satıcı dili belirsiz",
+        "deger": round(guven, 3), "esik": GUVEN_ESIGI, "tetikledi": guven < GUVEN_ESIGI,
+        "kosul": f"güven < {GUVEN_ESIGI}",
+    })
+    if guven < GUVEN_ESIGI:
         belirsiz.append("satıcı dili belirsiz")
-    if nouls["metin_yetersiz"].noul > 0.6:
+
+    yetersiz = nouls["metin_yetersiz"].noul
+    kapilar.append({
+        "tur": "belirsizlik", "ad": "metin_yetersiz", "etiket": "ilan metni yetersiz",
+        "deger": round(yetersiz, 3), "esik": BAYRAK_ESIGI, "tetikledi": yetersiz > BAYRAK_ESIGI,
+        "kosul": f"> {BAYRAK_ESIGI}",
+    })
+    if yetersiz > BAYRAK_ESIGI:
         belirsiz.append("ilan metni yetersiz")
-    for ad in ("kiracili_ima", "celiskili_bilgi"):
-        if 0.35 < nouls[ad].noul <= 0.6:
+
+    for ad, _ in bayrak_tanimlari:
+        deger = nouls[ad].noul
+        kararsiz = KARARSIZ_ALT < deger <= BAYRAK_ESIGI
+        kapilar.append({
+            "tur": "kararsiz", "ad": ad, "etiket": f"{ad} kararsız",
+            "deger": round(deger, 3), "esik": KARARSIZ_ALT, "tetikledi": kararsiz,
+            "kosul": f"{KARARSIZ_ALT} – {BAYRAK_ESIGI} arası",
+        })
+        if kararsiz:
             belirsiz.append(f"{ad} kararsız")
 
+    ortak = {"kapilar": kapilar, "terimler": terimler}
     if bayraklar:
-        return Karar("ele", skor, bayraklar, [f"kırmızı bayrak: {b}" for b in bayraklar])
+        return Karar("ele", skor, bayraklar, [f"kırmızı bayrak: {b}" for b in bayraklar], **ortak)
     if belirsiz:
-        return Karar("sana_sor", skor, bayraklar, belirsiz)
-    if skor < 0.55:
-        return Karar("ele", skor, bayraklar, [f"uygunluk skoru düşük ({skor:.2f})"])
-    return Karar("kisa_liste", skor, bayraklar, [f"uygunluk skoru {skor:.2f}"])
+        return Karar("sana_sor", skor, bayraklar, belirsiz, **ortak)
+    if skor < SKOR_ESIGI:
+        return Karar("ele", skor, bayraklar, [f"uygunluk skoru düşük ({skor:.2f})"], **ortak)
+    return Karar("kisa_liste", skor, bayraklar, [f"uygunluk skoru {skor:.2f}"], **ortak)
 
 
 def olcum(baslangic: float, usage: Any) -> dict[str, Any]:

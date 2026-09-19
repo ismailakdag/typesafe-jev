@@ -1,20 +1,38 @@
 {
   "manifest_version": 3,
   "name": "Ilan Yakala",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Gezdigin ilan sayfasini tek tikla yapilandirilmis veri olarak yerel arsivine kaydeder; arsivi buradan yonetirsin.",
-  "permissions": ["storage", "activeTab", "scripting", "tabs"],
-  "host_permissions": ["http://127.0.0.1:8765/*"],
-  "background": { "service_worker": "background.js" },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "http://127.0.0.1:8765/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "Ilan Yakala",
     "default_popup": "popup.html"
   },
   "content_scripts": [
     {
-      "matches": ["https://www.sahibinden.com/*"],
-      "js": ["extract.js", "content.js"],
-      "css": ["panel.css"],
+      "matches": [
+        "https://www.sahibinden.com/*"
+      ],
+      "js": [
+        "extract.js",
+        "akis.js",
+        "content.js"
+      ],
+      "css": [
+        "panel.css",
+        "akis.css"
+      ],
       "run_at": "document_idle"
     }
   ]

@@ -57,17 +57,22 @@ Panelde **Ayarlar** → anahtarı yapıştır → **Kaydet** → **Doğrula**.
 
 ## Ölçülen maliyet
 
-Bir ilan, 8 soru, tek çağrı:
+Bir ilan, 22 soru, tek çağrı (ölçülmüş):
 
-| | |
-|---|---|
-| süre | ~750 ms |
-| girdi tokeni | ~2.200 |
-| maliyet | ~$0.00009 |
-| 1000 ilan | ~$0.09 |
+| | 8 soru | 22 soru |
+|---|---|---|
+| süre | ~750 ms | ~980 ms |
+| girdi tokeni | 2.171 | 3.548 |
+| maliyet | $0.000091 | $0.000149 |
+| 1000 ilan | $0.09 | $0.15 |
 
-Fiyat girdi tokeni başına olduğu için **soru sayısı değil, metin uzunluğu**
-maliyeti belirler: ilan bir kez gönderilir, 8 soru onun üstüne çok az ekler.
+Ölçüm, "soru eklemek bedava" varsayımını çürüttü. Dağılım şöyle: ilan metni +
+alanlar + profil ~**1.380 token**, her soru kendi `instructions` ve `criteria`
+metniyle ~**100 token**. 22 soruda maliyetin ~%60'ı soruların kendi metni.
+
+Değişmeyen şey gecikme: 22 soru için 22 değil **tek istek** gider, hepsi paralel
+cevaplanır. Kısaltılacak yer varsa önce uzun `criteria` açıklamalarıdır.
+
 Gerçek sayılar `data/kullanim.json` defterinde birikir.
 
 ## İş bölümü
