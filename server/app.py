@@ -150,6 +150,86 @@ def list_ilanlar() -> dict[str, Any]:
     return {"count": len(docs), "ilanlar": docs}
 
 
+@app.delete("/api/ilan/{rid}")
+def delete_ilan(rid: str) -> dict[str, Any]:
+    """Bir ilani arsivden siler. Tum surumleriyle birlikte gider."""
+    path = path_for(SAFE_ID.sub("-", rid.lower()))
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Kayit bulunamadi")
+    path.unlink()
+    return {"silindi": rid}
+
+
+# --------------------------------------------------------------------------- #
+# Ayarlar: API anahtari .env dosyasina yazilir
+# --------------------------------------------------------------------------- #
+
+ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+
+
+def mask(secret: str) -> str:
+    """Anahtari ekranda gostermek icin maskeler; tam degeri hicbir yanitta donmez."""
+    if not secret:
+        return ""
+    if len(secret) <= 10:
+        return secret[:2] + "…"
+    return f"{secret[:6]}…{secret[-4:]}"
+
+
+def write_env_var(name: str, value: str) -> None:
+    """.env icindeki tek satiri gunceller, diger satirlara dokunmaz."""
+    lines = ENV_PATH.read_text(encoding="utf-8").splitlines() if ENV_PATH.exists() else []
+    out, yazildi = [], False
+    for raw in lines:
+        if raw.strip().startswith(f"{name}="):
+            out.append(f"{name}={value}")
+            yazildi = True
+        else:
+            out.append(raw)
+    if not yazildi:
+        out.append(f"{name}={value}")
+    ENV_PATH.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+
+class AyarlarIn(BaseModel):
+    api_key: str
+
+
+@app.get("/api/ayarlar")
+def get_ayarlar() -> dict[str, Any]:
+    key = os.getenv("TYPESAFE_API_KEY", "")
+    return {
+        "anahtar_var": bool(key),
+        "maskeli": mask(key),
+        "env_yolu": str(ENV_PATH),
+        "env_var": ENV_PATH.exists(),
+    }
+
+
+@app.post("/api/ayarlar")
+def set_ayarlar(body: AyarlarIn) -> dict[str, Any]:
+    """Anahtari .env'ye yazar ve calisan surece uygular; yeniden baslatma gerekmez."""
+    key = body.api_key.strip()
+    if not key:
+        raise HTTPException(status_code=400, detail="Anahtar boş olamaz")
+    write_env_var("TYPESAFE_API_KEY", key)
+    os.environ["TYPESAFE_API_KEY"] = key
+    return {"anahtar_var": True, "maskeli": mask(key), "env_yolu": str(ENV_PATH)}
+
+
+@app.post("/api/ayarlar/dogrula")
+async def dogrula() -> dict[str, Any]:
+    """Anahtarin gercekten calistigini TypeSafe'e sorarak dogrular."""
+    if not os.getenv("TYPESAFE_API_KEY"):
+        raise HTTPException(status_code=400, detail="Önce anahtarı kaydet")
+    try:
+        async with AsyncTypeSafeClient() as client:
+            models = await client.models.list()
+        return {"ok": True, "modeller": [m.name for m in models.models]}
+    except Exception as error:
+        return {"ok": False, "mesaj": str(error)}
+
+
 # --------------------------------------------------------------------------- #
 # Eleme: kod filtresi + Jev, sonuclar tamamlandikca akitilir
 # --------------------------------------------------------------------------- #

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<style>
+:root{
+  color-scheme: light;
+  --surface:#fcfcfb; --plane:#f2f2ef; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --line:#e1e0d9; --good:#0ca30c; --critical:#d03b3b; --seq:#2a78d6;
+}
+@media (prefers-color-scheme: dark){
+  :root{color-scheme:dark; --surface:#1a1a19; --plane:#222221; --ink:#fff; --ink-2:#c3c2b7;
+        --line:#2c2c2a; --seq:#3987e5;}
+}
+*{box-sizing:border-box}
+body{width:392px;max-height:580px;margin:0;background:var(--surface);color:var(--ink);
+  font:13px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:8px;padding:11px 13px;border-bottom:1px solid var(--line)}
+header b{font-size:13.5px;font-weight:650}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none}
+.dot.on{background:var(--good)}.dot.off{background:var(--critical)}
+.count{margin-left:auto;font-size:11.5px;color:var(--muted)}
+
+.cur{padding:11px 13px;border-bottom:1px solid var(--line);background:var(--plane)}
+.cur .t{font-size:11.5px;color:var(--muted);margin-bottom:5px}
+.cur .u{font-size:12px;word-break:break-all;line-height:1.35;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+button{font:inherit;cursor:pointer;border-radius:7px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);padding:6px 10px;font-size:12px}
+button:hover{background:var(--plane)}
+button.primary{background:var(--ink);color:var(--surface);border-color:var(--ink);font-weight:620;
+  width:100%;margin-top:8px;padding:8px}
+button.primary:hover{opacity:.88}
+button:disabled{opacity:.5;cursor:default}
+.msg{font-size:11.5px;margin-top:7px;min-height:16px;color:var(--muted)}
+.msg.ok{color:var(--good)}.msg.err{color:var(--critical)}
+
+.search{padding:9px 13px;border-bottom:1px solid var(--line)}
+.search input{width:100%;padding:6px 9px;border:1px solid var(--line);border-radius:7px;
+  font:inherit;font-size:12.5px;background:var(--surface);color:var(--ink)}
+
+.list{overflow:auto;flex:1;min-height:80px}
+.row{display:flex;gap:10px;padding:9px 13px;border-bottom:1px solid var(--line);align-items:flex-start}
+.row:hover{background:var(--plane)}
+.th{width:52px;height:42px;border-radius:6px;background:var(--plane) center/cover no-repeat;flex:none}
+.info{flex:1;min-width:0}
+.info .n{font-size:12.5px;font-weight:600;line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.info .m{font-size:11.5px;color:var(--ink-2);margin-top:2px;font-variant-numeric:tabular-nums}
+.info .l{font-size:11px;color:var(--muted)}
+.acts{display:flex;flex-direction:column;gap:4px;flex:none}
+.acts button{padding:3px 7px;font-size:11px}
+.acts button.del:hover{background:var(--critical);color:#fff;border-color:var(--critical)}
+.det{padding:0 13px 11px 75px;font-size:11.5px;color:var(--ink-2)}
+.det table{width:100%;border-collapse:collapse}
+.det td{padding:2px 0;vertical-align:top}
+.det td:first-child{color:var(--muted);width:44%;padding-right:8px}
+.det .co{font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);margin-top:5px}
+.empty{padding:26px 16px;text-align:center;color:var(--muted);font-size:12.5px}
+footer{padding:9px 13px;border-top:1px solid var(--line);display:flex;gap:8px}
+footer button{flex:1}
+</style>
+</head>
+<body>
+<header>
+  <span class="dot" id="dot"></span>
+  <b>İlan Yakala</b>
+  <span class="count" id="count">—</span>
+</header>
+
+<div class="cur">
+  <div class="t" id="curlabel">Açık sekme</div>
+  <div class="u" id="curl">—</div>
+  <button class="primary" id="capture">Bu sayfayı kaydet</button>
+  <div class="msg" id="msg"></div>
+</div>
+
+<div class="search"><input id="q" type="search" placeholder="Arşivde ara — başlık, semt, ilan no"></div>
+
+<div class="list" id="list"><div class="empty">yükleniyor…</div></div>
+
+<footer>
+  <button id="openui">Eleme panelini aç</button>
+  <button id="refresh">Yenile</button>
+</footer>
+
+<script src="popup.js"></script>
+</body>
+</html>

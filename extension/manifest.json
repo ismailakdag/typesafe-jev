@@ -1,12 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Ilan Yakala",
-  "version": "0.1.0",
-  "description": "Gezdigin ilan sayfasini tek tikla yapilandirilmis veri olarak yerel arsivine kaydeder.",
-  "permissions": ["storage", "activeTab", "scripting"],
+  "version": "0.2.0",
+  "description": "Gezdigin ilan sayfasini tek tikla yapilandirilmis veri olarak yerel arsivine kaydeder; arsivi buradan yonetirsin.",
+  "permissions": ["storage", "activeTab", "scripting", "tabs"],
   "host_permissions": ["http://127.0.0.1:8765/*"],
   "background": { "service_worker": "background.js" },
-  "action": { "default_title": "Bu sayfayi yakala (genel mod)" },
+  "action": {
+    "default_title": "Ilan Yakala",
+    "default_popup": "popup.html"
+  },
   "content_scripts": [
     {
       "matches": ["https://www.sahibinden.com/*"],

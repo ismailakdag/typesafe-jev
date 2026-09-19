@@ -6,90 +6,203 @@
 <title>İlan Eleme</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
+/* Renkler dataviz referans paletinden. Durum renkleri (good/warning/serious/
+   critical) her zaman simge + etiketle birlikte kullanilir; renk tek basina
+   anlam tasimaz. Skor gostergesi tek hue'lu sequential mavi. */
 :root{
-  --bg:#f6f7f9; --card:#fff; --ink:#15181d; --muted:#666e7a; --line:#e3e6ea;
-  --ok:#1b7f4d; --warn:#b7791f; --bad:#b53535; --accent:#1f2937;
+  color-scheme: light;
+  --surface:#fcfcfb; --plane:#f9f9f7; --raise:#ffffff;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --line:#e1e0d9; --rule:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --good:#0ca30c; --warning:#fab219; --serious:#ec835a; --critical:#d03b3b;
+  --seq:#2a78d6; --seq-soft:#cde2fb;
+  --shadow:0 1px 2px rgba(11,11,11,.04), 0 8px 24px rgba(11,11,11,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --surface:#1a1a19; --plane:#0d0d0d; --raise:#222221;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --line:#2c2c2a; --rule:#383835; --ring:rgba(255,255,255,.10);
+    --seq:#3987e5; --seq-soft:#184f95;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
 }
 *{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);
-     font:14px/1.5 -apple-system,"Segoe UI",Roboto,Helvetica,sans-serif}
-header{display:flex;align-items:baseline;gap:14px;padding:16px 22px;background:var(--card);
-       border-bottom:1px solid var(--line);position:sticky;top:0;z-index:500}
-header h1{font-size:16px;margin:0;font-weight:650}
-header .muted{color:var(--muted);font-size:13px}
-.wrap{display:grid;grid-template-columns:310px 1fr;gap:20px;padding:20px;align-items:start}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
-.panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
-          margin:0 0 12px;font-weight:600}
-label{display:block;margin:10px 0 4px;font-size:12px;color:var(--muted)}
-input,textarea,select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;
-      font:inherit;background:#fff;color:var(--ink)}
-textarea{resize:vertical;min-height:52px}
+html,body{height:100%}
+body{margin:0;background:var(--plane);color:var(--ink);
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+a{color:inherit}
+h1,h2,h3{margin:0}
+
+/* ---------- ust bar ---------- */
+header{display:flex;align-items:center;gap:14px;padding:0 20px;height:56px;
+  background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:900}
+header h1{font-size:15px;font-weight:650;letter-spacing:-.01em}
+.count{font-size:12.5px;color:var(--muted)}
+.spacer{margin-left:auto}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;
+  font-size:12px;font-weight:550;border:1px solid var(--ring);background:var(--plane);color:var(--ink-2)}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.pill.on .dot{background:var(--good)}
+.pill.off .dot{background:var(--critical)}
+.ghost{border:1px solid var(--ring);background:var(--surface);color:var(--ink);
+  border-radius:8px;padding:6px 11px;font:inherit;font-size:12.5px;cursor:pointer}
+.ghost:hover{background:var(--plane)}
+
+/* ---------- yerlesim ---------- */
+.wrap{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;padding:18px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;
+  box-shadow:var(--shadow)}
+aside.panel{position:sticky;top:74px;max-height:calc(100vh - 92px);overflow:auto}
+.sec{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  font-weight:650;margin:24px 0 10px;display:flex;align-items:center;gap:7px}
+.sec:first-child{margin-top:0}
+.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+label{display:block;margin:9px 0 4px;font-size:11.5px;color:var(--ink-2)}
+input,textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;
+  font:inherit;font-size:13px;background:var(--raise);color:var(--ink)}
+input:focus,textarea:focus{outline:2px solid var(--seq);outline-offset:-1px;border-color:transparent}
+textarea{resize:vertical;min-height:50px;line-height:1.45}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.check{display:flex;align-items:center;gap:8px;margin-top:10px}
-.check input{width:auto}
-button{width:100%;margin-top:14px;padding:10px;border:0;border-radius:8px;background:var(--accent);
-       color:#fff;font:inherit;font-weight:600;cursor:pointer}
-button:hover{background:#374151}
-button:disabled{opacity:.5;cursor:default}
-#map{height:190px;border-radius:8px;margin-top:10px;border:1px solid var(--line)}
+.check{display:flex;align-items:center;gap:8px;margin-top:11px;font-size:12.5px;color:var(--ink-2)}
+.check input{width:auto;margin:0}
+.run{width:100%;margin-top:16px;padding:11px;border:0;border-radius:9px;background:var(--ink);
+  color:var(--surface);font:inherit;font-weight:650;cursor:pointer;transition:opacity .15s}
+.run:hover{opacity:.87}
+.run:disabled{opacity:.45;cursor:default}
+#map{height:180px;border-radius:10px;margin-top:9px;border:1px solid var(--line)}
+.hint{font-size:11px;color:var(--muted);margin-top:6px}
 
-.metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
-.metric{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
-.metric .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-.metric .v{font-size:21px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:3px}
-.metric .s{font-size:11px;color:var(--muted)}
+/* ---------- KPI satiri ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 15px;
+  box-shadow:var(--shadow)}
+.kpi .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:650}
+.kpi .v{font-size:26px;font-weight:660;line-height:1.15;margin-top:5px;letter-spacing:-.02em}
+.kpi .s{font-size:11.5px;color:var(--ink-2);margin-top:2px;min-height:17px}
+.kpi.accent .v{color:var(--good)}
 
-.funnel{display:flex;gap:2px;height:9px;border-radius:5px;overflow:hidden;margin-bottom:16px;background:var(--line)}
-.funnel i{display:block;height:100%;transition:width .45s ease}
-.f-kod{background:#c8ccd2}.f-ele{background:#e0a8a8}.f-sor{background:#e6c88a}.f-kisa{background:#7bb894}
+/* ---------- huni ---------- */
+.funnel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;
+  margin-bottom:14px;box-shadow:var(--shadow)}
+.fbar{display:flex;gap:2px;height:10px;border-radius:6px;overflow:hidden;background:var(--line)}
+.fbar i{display:block;height:100%;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.f-kalan{background:var(--rule)}
+.f-kod{background:var(--muted)}
+.f-ele{background:var(--critical)}
+.f-sor{background:var(--warning)}
+.f-kisa{background:var(--good)}
+.flegend{display:flex;flex-wrap:wrap;gap:14px;margin-top:11px;font-size:11.5px;color:var(--ink-2)}
+.flegend span{display:inline-flex;align-items:center;gap:6px}
+.swatch{width:9px;height:9px;border-radius:3px;flex:none}
+.flegend b{font-weight:650;color:var(--ink);font-variant-numeric:tabular-nums}
 
-#log{background:#12151a;color:#cdd5df;border-radius:10px;padding:12px 14px;height:150px;
-     overflow:auto;font:11.5px/1.65 ui-monospace,Menlo,Consolas,monospace;margin-bottom:18px}
+/* ---------- log ---------- */
+details.logbox{margin-bottom:16px}
+details.logbox summary{font-size:12px;color:var(--muted);cursor:pointer;padding:4px 0;
+  list-style:none;display:flex;align-items:center;gap:7px}
+details.logbox summary::-webkit-details-marker{display:none}
+details.logbox summary::before{content:"▸";transition:transform .15s;display:inline-block}
+details.logbox[open] summary::before{transform:rotate(90deg)}
+#log{background:#101311;color:#cdd5df;border-radius:10px;padding:11px 13px;height:138px;
+  overflow:auto;font:11.5px/1.7 ui-monospace,Menlo,Consolas,monospace;margin-top:8px;
+  border:1px solid var(--line)}
 #log .t{color:#6b7684}
-#log .ok{color:#7bd8a4}.warn{color:#e8c37a}.bad{color:#e79a9a}
+#log .ok{color:#7bd8a4}#log .warn{color:#f0cf8b}#log .bad{color:#f0a0a0}
 
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;
-      display:flex;flex-direction:column;opacity:0;transform:translateY(6px);
-      animation:in .28s ease forwards}
-@keyframes in{to{opacity:1;transform:none}}
-.card.ele{opacity:.55}
-.card .thumb{height:132px;background:#eceef1 center/cover no-repeat;position:relative}
-.card .thumb .ph{display:flex;height:100%;align-items:center;justify-content:center;color:#aab;font-size:12px}
-.card .badge{position:absolute;top:8px;left:8px;padding:3px 8px;border-radius:20px;font-size:11px;
-             font-weight:600;color:#fff;background:#555}
-.badge.kisa_liste{background:var(--ok)}.badge.sana_sor{background:var(--warn)}.badge.ele{background:var(--bad)}
-.badge.kod{background:#6b7280}
-.card .body{padding:11px 13px;display:flex;flex-direction:column;gap:6px;flex:1}
-.card .ttl{font-weight:600;font-size:13px;line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;
-           -webkit-box-orient:vertical;overflow:hidden}
-.card .meta{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
-.card .price{font-weight:650;font-variant-numeric:tabular-nums}
-.bar{height:5px;background:var(--line);border-radius:3px;overflow:hidden}
-.bar i{display:block;height:100%;background:var(--ok);transition:width .5s ease}
+/* ---------- kartlar ---------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:13px;overflow:hidden;
+  display:flex;flex-direction:column;box-shadow:var(--shadow);
+  opacity:0;transform:translateY(8px);animation:rise .3s cubic-bezier(.2,.8,.3,1) forwards;
+  transition:box-shadow .18s, transform .18s}
+.card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(11,11,11,.05),0 14px 32px rgba(11,11,11,.10)}
+@keyframes rise{to{opacity:1;transform:none}}
+.card.dim{opacity:.52}
+.card.dim:hover{opacity:.92}
+.thumb{height:140px;background:var(--plane) center/cover no-repeat;position:relative;overflow:hidden}
+.thumb .ph{display:flex;height:100%;align-items:center;justify-content:center;
+  color:var(--muted);font-size:12px}
+.badge{position:absolute;top:9px;left:9px;display:inline-flex;align-items:center;gap:5px;
+  padding:4px 9px;border-radius:999px;font-size:11px;font-weight:650;color:#fff;
+  background:var(--muted);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.badge.kisa_liste{background:var(--good)}
+.badge.sana_sor{background:var(--warning);color:#2b2200}
+.badge.ele{background:var(--critical)}
+.badge.kod{background:#6b6b66}
+.shots{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.62);color:#fff;
+  font-size:10.5px;padding:2px 7px;border-radius:999px}
+.del{position:absolute;top:8px;right:8px;width:26px;height:26px;border:0;border-radius:7px;
+  background:rgba(0,0,0,.5);color:#fff;font-size:15px;line-height:1;cursor:pointer;
+  opacity:0;transition:opacity .15s}
+.card:hover .del{opacity:1}
+.del:hover{background:var(--critical)}
+.cbody{padding:12px 14px;display:flex;flex-direction:column;gap:7px;flex:1}
+.ttl{font-weight:640;font-size:13px;line-height:1.35;letter-spacing:-.005em;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ttl a{text-decoration:none}.ttl a:hover{text-decoration:underline}
+.price{font-size:16px;font-weight:660;letter-spacing:-.01em}
+.was{font-size:11.5px;color:var(--muted);text-decoration:line-through;font-weight:400;margin-left:6px}
+.meta{color:var(--ink-2);font-size:12px;font-variant-numeric:tabular-nums}
+.score{display:flex;align-items:center;gap:8px}
+.bar{flex:1;height:6px;background:var(--seq-soft);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--seq);border-radius:4px;
+  transition:width .55s cubic-bezier(.3,.9,.3,1)}
+.score b{font-size:11.5px;font-weight:650;font-variant-numeric:tabular-nums;min-width:32px;text-align:right}
 .tags{display:flex;flex-wrap:wrap;gap:4px}
-.tag{font-size:11px;padding:2px 7px;border-radius:5px;background:#f1f3f5;color:var(--muted)}
-.tag.bad{background:#fbeaea;color:var(--bad)}
-.card .cost{margin-top:auto;padding-top:6px;border-top:1px solid var(--line);
-            font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);
-            display:flex;justify-content:space-between}
-details summary{cursor:pointer;font-size:11.5px;color:var(--muted)}
-details pre{font-size:10.5px;background:#f7f8fa;padding:8px;border-radius:6px;overflow:auto;max-height:200px}
-.banner{background:#fdf3e3;border:1px solid #e8c37a;color:#7a5a1a;padding:10px 14px;
-        border-radius:10px;margin-bottom:16px;font-size:13px}
+.tag{font-size:11px;padding:2.5px 8px;border-radius:6px;background:var(--plane);
+  color:var(--ink-2);border:1px solid var(--line)}
+.tag.bad{background:color-mix(in srgb,var(--critical) 12%,transparent);
+  color:var(--critical);border-color:color-mix(in srgb,var(--critical) 30%,transparent)}
+.tag.warn{background:color-mix(in srgb,var(--warning) 16%,transparent);
+  color:var(--ink);border-color:color-mix(in srgb,var(--warning) 40%,transparent)}
+.cost{margin-top:auto;padding-top:8px;border-top:1px solid var(--line);
+  font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);
+  display:flex;justify-content:space-between;gap:6px}
+details.raw summary{cursor:pointer;font-size:11.5px;color:var(--muted)}
+details.raw pre{font-size:10.5px;background:var(--plane);padding:9px;border-radius:7px;
+  overflow:auto;max-height:210px;border:1px solid var(--line);margin:6px 0 0}
+
+/* ---------- bos durum / uyari ---------- */
+.empty{grid-column:1/-1;text-align:center;padding:52px 20px;color:var(--muted);
+  border:1.5px dashed var(--line);border-radius:14px}
+.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:6px}
+.note{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-radius:11px;
+  margin-bottom:14px;font-size:13px;border:1px solid;
+  background:color-mix(in srgb,var(--warning) 12%,var(--surface));
+  border-color:color-mix(in srgb,var(--warning) 45%,transparent);color:var(--ink)}
+.note.bad{background:color-mix(in srgb,var(--critical) 10%,var(--surface));
+  border-color:color-mix(in srgb,var(--critical) 40%,transparent)}
+
+/* ---------- ayarlar penceresi ---------- */
+dialog{border:1px solid var(--line);border-radius:15px;padding:0;background:var(--surface);
+  color:var(--ink);max-width:460px;width:92vw;box-shadow:0 20px 60px rgba(0,0,0,.28)}
+dialog::backdrop{background:rgba(11,11,11,.42);backdrop-filter:blur(2px)}
+.dlg-h{padding:16px 20px;border-bottom:1px solid var(--line);font-weight:650}
+.dlg-b{padding:18px 20px;display:flex;flex-direction:column;gap:4px}
+.dlg-f{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:9px;justify-content:flex-end}
+.mono{font:11.5px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);word-break:break-all}
+.save{border:0;border-radius:8px;padding:8px 15px;background:var(--ink);color:var(--surface);
+  font:inherit;font-weight:620;cursor:pointer}
+.status{font-size:12.5px;margin-top:10px;min-height:18px}
+.status.ok{color:var(--good)}.status.err{color:var(--critical)}
 </style>
 </head>
 <body>
+
 <header>
   <h1>İlan Eleme</h1>
-  <span class="muted" id="ds">yükleniyor…</span>
-  <span class="muted" style="margin-left:auto" id="model"></span>
+  <span class="count" id="ds">—</span>
+  <span class="spacer"></span>
+  <span class="count" id="model"></span>
+  <span class="pill" id="keypill"><span class="dot"></span><span id="keytext">anahtar…</span></span>
+  <button class="ghost" id="open-settings">Ayarlar</button>
 </header>
 
 <div class="wrap">
   <aside class="panel">
-    <h2>Kesin sınırlar · kod</h2>
+    <h2 class="sec">Kesin sınırlar · kod</h2>
     <div class="row2">
       <div><label>Min fiyat</label><input id="min_fiyat" type="number" placeholder="—"></div>
       <div><label>Max fiyat</label><input id="max_fiyat" type="number" value="8000000"></div>
@@ -98,148 +211,269 @@ details pre{font-size:10.5px;background:#f7f8fa;padding:8px;border-radius:6px;ov
       <div><label>Min m²</label><input id="min_m2" type="number" value="100"></div>
       <div><label>Max aidat</label><input id="max_aidat" type="number" value="4000"></div>
     </div>
-    <div class="check"><input id="sadece_bos" type="checkbox"><label style="margin:0">Sadece boş (kiracısız)</label></div>
-    <label>Merkeze uzaklık (km) — haritadan nokta seç</label>
+    <div class="check"><input id="sadece_bos" type="checkbox"><span>Sadece boş (kiracısız)</span></div>
+
+    <h2 class="sec">Konum</h2>
+    <label>Merkeze uzaklık (km)</label>
     <input id="yaricap" type="number" step="0.5" value="10">
     <div id="map"></div>
+    <div class="hint" id="merkez-hint">Merkez seçmek için haritaya tıkla.</div>
 
-    <h2 style="margin-top:20px">Profil · Jev</h2>
+    <h2 class="sec">Profil · Jev</h2>
     <label>Kullanım</label>
     <textarea id="profil">Günlük kullanım, uzun vadeli oturum. İzmir Katip Çelebi Üniversitesi'ne yakınlık önemli.</textarea>
     <label>Öncelikler</label>
     <textarea id="oncelikler">Ulaşım kolaylığı, düşük aidat, taşınmaya hazır olması, site içinde güvenlik ve otopark</textarea>
     <label>Kırmızı çizgiler</label>
     <textarea id="kirmizi">Kiracılı teslim, tapu sorunu, bilgilerin çelişkili olması</textarea>
-    <button id="run">Elemeyi çalıştır</button>
+
+    <button class="run" id="run">Elemeyi çalıştır</button>
   </aside>
 
   <main>
-    <div id="banner"></div>
-    <div class="metrics">
-      <div class="metric"><div class="k">Toplam</div><div class="v" id="m-toplam">0</div><div class="s">arşivdeki ilan</div></div>
-      <div class="metric"><div class="k">Kod elemesi</div><div class="v" id="m-kod">0</div><div class="s" id="m-kod-s">—</div></div>
-      <div class="metric"><div class="k">Jev kararı</div><div class="v" id="m-jev">0</div><div class="s" id="m-jev-s">—</div></div>
-      <div class="metric"><div class="k">Kısa liste</div><div class="v" id="m-kisa">0</div><div class="s" id="m-kisa-s">—</div></div>
-      <div class="metric"><div class="k">Maliyet</div><div class="v" id="m-usd">$0</div><div class="s" id="m-usd-s">—</div></div>
+    <div id="notes"></div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="k">Arşiv</div><div class="v" id="m-toplam">0</div><div class="s">yakalanmış ilan</div></div>
+      <div class="kpi"><div class="k">Kod elemesi</div><div class="v" id="m-kod">0</div><div class="s" id="m-kod-s">—</div></div>
+      <div class="kpi"><div class="k">Jev kararı</div><div class="v" id="m-jev">0</div><div class="s" id="m-jev-s">—</div></div>
+      <div class="kpi accent"><div class="k">Kısa liste</div><div class="v" id="m-kisa">0</div><div class="s" id="m-kisa-s">—</div></div>
+      <div class="kpi"><div class="k">Maliyet</div><div class="v" id="m-usd">$0</div><div class="s" id="m-usd-s">—</div></div>
     </div>
+
     <div class="funnel">
-      <i class="f-kod" id="f-kod" style="width:100%"></i>
-      <i class="f-ele" id="f-ele" style="width:0"></i>
-      <i class="f-sor" id="f-sor" style="width:0"></i>
-      <i class="f-kisa" id="f-kisa" style="width:0"></i>
+      <div class="fbar">
+        <i class="f-kalan" id="f-kalan" style="width:100%"></i>
+        <i class="f-kisa" id="f-kisa" style="width:0"></i>
+        <i class="f-sor" id="f-sor" style="width:0"></i>
+        <i class="f-ele" id="f-ele" style="width:0"></i>
+        <i class="f-kod" id="f-kod" style="width:0"></i>
+      </div>
+      <div class="flegend">
+        <span><i class="swatch f-kalan"></i>bekleyen <b id="l-kalan">0</b></span>
+        <span><i class="swatch f-kisa"></i>✓ kısa liste <b id="l-kisa">0</b></span>
+        <span><i class="swatch f-sor"></i>? sana sor <b id="l-sor">0</b></span>
+        <span><i class="swatch f-ele"></i>✕ Jev eledi <b id="l-ele">0</b></span>
+        <span><i class="swatch f-kod"></i>⊘ kod eledi <b id="l-kod">0</b></span>
+      </div>
     </div>
-    <div id="log"><span class="t">hazır.</span></div>
+
+    <details class="logbox"><summary>Çalışma kaydı</summary>
+      <div id="log"><span class="t">hazır.</span></div>
+    </details>
+
     <div class="grid" id="grid"></div>
   </main>
 </div>
+
+<dialog id="settings">
+  <div class="dlg-h">Ayarlar</div>
+  <div class="dlg-b">
+    <label>TypeSafe API anahtarı</label>
+    <input id="apikey" type="password" placeholder="ts-…" autocomplete="off">
+    <div class="hint">console.typesafe.ai/keys adresinden alınır. Aşağıdaki <code>.env</code>
+      dosyasına yazılır, git'e girmez ve bu makineden çıkmaz.</div>
+    <div class="mono" id="envpath"></div>
+    <div class="status" id="setstatus"></div>
+  </div>
+  <div class="dlg-f">
+    <button class="ghost" id="verify">Doğrula</button>
+    <button class="ghost" id="close-settings">Kapat</button>
+    <button class="save" id="savekey">Kaydet</button>
+  </div>
+</dialog>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const tl = (n) => n == null ? "—" : n.toLocaleString("tr-TR") + " TL";
-let ilanlar = {}, merkez = null, marker = null, cember = null;
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let ilanlar = {}, merkez = null, marker = null, cember = null, pinKat = null;
 
-// --- harita ---------------------------------------------------------------
-const map = L.map("map").setView([38.52, 27.05], 11);
+/* ---------- harita ---------- */
+const map = L.map("map", {zoomControl:false}).setView([38.45, 27.15], 10);
+L.control.zoom({position:"topright"}).addTo(map);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   {maxZoom:18, attribution:"© OpenStreetMap"}).addTo(map);
-map.on("click", (e) => setMerkez([e.latlng.lat, e.latlng.lng]));
+map.on("click", e => setMerkez([e.latlng.lat, e.latlng.lng]));
 
 function setMerkez(c){
   merkez = c;
-  if (marker) marker.remove();
-  if (cember) cember.remove();
+  marker?.remove(); cember?.remove();
   marker = L.marker(c).addTo(map);
-  cember = L.circle(c, {radius: (+$("yaricap").value || 0) * 1000,
-                        color:"#1f2937", weight:1, fillOpacity:.07}).addTo(map);
+  cember = L.circle(c, {radius:(+$("yaricap").value||0)*1000,
+    color:getComputedStyle(document.body).getPropertyValue("--seq").trim(),
+    weight:1.5, fillOpacity:.08}).addTo(map);
+  $("merkez-hint").textContent = `Merkez: ${c[0].toFixed(4)}, ${c[1].toFixed(4)} — yarıçap ${$("yaricap").value} km`;
 }
 $("yaricap").addEventListener("input", () => merkez && setMerkez(merkez));
 
-// --- kayit listesi --------------------------------------------------------
+/* ---------- ayarlar ---------- */
+async function ayarDurumu(){
+  const a = await (await fetch("/api/ayarlar")).json();
+  const pill = $("keypill");
+  pill.className = "pill " + (a.anahtar_var ? "on" : "off");
+  $("keytext").textContent = a.anahtar_var ? `anahtar ${a.maskeli}` : "anahtar yok";
+  $("envpath").textContent = a.env_yolu;
+  if (!a.anahtar_var) not(`<div class="note">TypeSafe anahtarı tanımlı değil — kod filtresi çalışır, Jev kararları çalışmaz. <b>Ayarlar</b>'dan ekleyebilirsin.</div>`);
+  return a;
+}
+function not(html){ $("notes").innerHTML = html; }
+
+$("open-settings").onclick = () => $("settings").showModal();
+$("close-settings").onclick = () => $("settings").close();
+
+$("savekey").onclick = async () => {
+  const key = $("apikey").value.trim();
+  if (!key) return setStatus("Anahtar boş.", "err");
+  const r = await fetch("/api/ayarlar", {method:"POST",
+    headers:{"Content-Type":"application/json"}, body:JSON.stringify({api_key:key})});
+  if (!r.ok) return setStatus("Kaydedilemedi: " + (await r.text()), "err");
+  const a = await r.json();
+  $("apikey").value = "";
+  setStatus(`Kaydedildi (${a.maskeli}). Yeniden başlatma gerekmiyor.`, "ok");
+  not(""); await ayarDurumu();
+};
+
+$("verify").onclick = async () => {
+  setStatus("Doğrulanıyor…");
+  const r = await (await fetch("/api/ayarlar/dogrula", {method:"POST"})).json();
+  r.ok ? setStatus("Çalışıyor. Modeller: " + r.modeller.join(", "), "ok")
+       : setStatus("Başarısız: " + r.mesaj, "err");
+};
+const setStatus = (m, c="") => { $("setstatus").className = "status " + c; $("setstatus").textContent = m; };
+
+/* ---------- arsiv ---------- */
 async function yukle(){
   const d = await (await fetch("/api/ilanlar")).json();
   ilanlar = Object.fromEntries(d.ilanlar.map(i => [i.id, i]));
-  $("ds").textContent = `${d.count} ilan arşivde`;
+  $("ds").textContent = d.count ? `${d.count} ilan arşivde` : "arşiv boş";
   $("m-toplam").textContent = d.count;
+  $("l-kalan").textContent = d.count;
+
+  pinKat?.remove();
+  pinKat = L.layerGroup().addTo(map);
   const pins = d.ilanlar.filter(i => i.coords);
+  const seq = getComputedStyle(document.body).getPropertyValue("--seq").trim();
   pins.forEach(i => L.circleMarker([i.coords.lat, i.coords.lon],
-    {radius:4, color:"#1f2937", weight:1, fillOpacity:.6}).addTo(map).bindPopup(i.baslik ?? i.id));
-  if (pins.length) map.fitBounds(pins.map(i => [i.coords.lat, i.coords.lon]), {padding:[30,30], maxZoom:13});
-  if (!d.count) $("banner").innerHTML =
-    '<div class="banner">Arşiv boş. Bir ilan sayfasında eklentiden <b>Kaydet</b>\'e bas, sonra bu sayfayı yenile.</div>';
+    {radius:5, color:seq, weight:2, fillColor:seq, fillOpacity:.5})
+    .bindPopup(`<b>${esc(i.baslik ?? i.id)}</b><br>${tl(i.fiyat_tl)}`).addTo(pinKat));
+  if (pins.length) map.fitBounds(pins.map(i => [i.coords.lat, i.coords.lon]), {padding:[26,26], maxZoom:13});
+
   render(d.ilanlar.map(i => ({ilan:i})));
 }
 
-// --- kartlar --------------------------------------------------------------
+/* ---------- kart ---------- */
+const ROZET = {kisa_liste:["✓","kısa liste"], sana_sor:["?","sana sor"],
+               ele:["✕","elendi"], kod:["⊘","kod elemesi"]};
+
 function kart(i, karar, kod){
   const el = document.createElement("div");
-  el.className = "card" + (karar?.sonuc === "ele" || kod?.gecti === false ? " ele" : "");
+  const elendi = karar?.sonuc === "ele" || kod?.gecti === false;
+  el.className = "card" + (elendi ? " dim" : "");
   el.id = "c-" + i.id;
   const f = i.fields || {};
   const rozet = karar ? karar.sonuc : (kod && !kod.gecti ? "kod" : null);
-  const rozetAd = {kisa_liste:"kısa liste", sana_sor:"sana sor", ele:"elendi", kod:"kod elemesi"}[rozet] ?? "";
-  const thumb = i.kapak
-    ? `<div class="thumb" style="background-image:url('${i.kapak}')">`
-    : `<div class="thumb"><div class="ph">görsel yok</div>`;
+  const [ikon, etiket] = ROZET[rozet] ?? ["",""];
+
   const tags = [];
-  if (karar) karar.bayraklar.forEach(b => tags.push(`<span class="tag bad">${b}</span>`));
-  if (karar) karar.gerekce.forEach(g => tags.push(`<span class="tag">${g}</span>`));
-  if (kod && !kod.gecti) tags.push(`<span class="tag bad">${kod.neden}</span>`);
+  karar?.bayraklar.forEach(b => tags.push(`<span class="tag bad">⚑ ${esc(b)}</span>`));
+  if (karar?.sonuc === "sana_sor") karar.gerekce.forEach(g => tags.push(`<span class="tag warn">${esc(g)}</span>`));
+  else if (karar) karar.gerekce.forEach(g => tags.push(`<span class="tag">${esc(g)}</span>`));
+  if (kod && !kod.gecti) tags.push(`<span class="tag bad">${esc(kod.neden)}</span>`);
   if (kod?.mesafe_km != null) tags.push(`<span class="tag">${kod.mesafe_km} km</span>`);
 
-  el.innerHTML = `${thumb}${rozet ? `<span class="badge ${rozet}">${rozetAd}</span>` : ""}</div>
-    <div class="body">
-      <div class="ttl">${i.baslik ?? i.id}</div>
-      <div class="price">${tl(i.fiyat_tl)}</div>
-      <div class="meta">${f.m2_brut ?? "—"} m² · ${f.oda_sayisi ?? "—"} · ${f.bulundugu_kat ?? "—"}. kat
-        ${f.aidat_tl ? "· aidat " + f.aidat_tl.toLocaleString("tr-TR") : ""}</div>
-      ${karar ? `<div class="bar"><i style="width:${Math.round(karar.skor*100)}%"></i></div>
-                 <div class="meta">uygunluk ${(karar.skor*100).toFixed(0)}%</div>` : ""}
+  el.innerHTML = `
+    <div class="thumb" ${i.kapak ? `style="background-image:url('${esc(i.kapak)}')"` : ""}>
+      ${i.kapak ? "" : '<div class="ph">görsel yok</div>'}
+      ${rozet ? `<span class="badge ${rozet}">${ikon} ${etiket}</span>` : ""}
+      ${i.foto_sayisi ? `<span class="shots">${i.foto_sayisi} foto</span>` : ""}
+      <button class="del" data-id="${i.id}" title="Arşivden sil">×</button>
+    </div>
+    <div class="cbody">
+      <div class="ttl"><a href="${esc(i.url)}" target="_blank" rel="noreferrer">${esc(i.baslik ?? i.id)}</a></div>
+      <div class="price">${tl(i.fiyat_tl)}${
+        i.fiyat_degisti ? `<span class="was">${tl(i.ilk_fiyat_tl)}</span>` : ""}</div>
+      <div class="meta">${f.m2_brut ?? "—"} m² · ${esc(f.oda_sayisi ?? "—")} · ${esc(f.bulundugu_kat ?? "—")}. kat${
+        f.aidat_tl ? ` · aidat ${f.aidat_tl.toLocaleString("tr-TR")}` : ""}</div>
+      <div class="meta">${esc((i.konum_yolu ?? []).slice(-3).join(" / "))}</div>
+      ${karar ? `<div class="score"><div class="bar"><i style="width:${Math.round(karar.skor*100)}%"></i></div>
+                 <b>${(karar.skor*100).toFixed(0)}%</b></div>` : ""}
       <div class="tags">${tags.join("")}</div>
-      ${karar ? `<details><summary>ham yargılar</summary><pre>${
-        JSON.stringify(karar.detay, null, 1)}</pre></details>` : ""}
-      ${karar ? `<div class="cost"><span>${karar.olcum.ms} ms</span>
-                 <span>${karar.olcum.input_tokens} tok</span>
-                 <span>$${karar.olcum.usd.toFixed(7)}</span></div>` : ""}
+      ${karar ? `<details class="raw"><summary>ham yargılar</summary><pre>${
+        esc(JSON.stringify(karar.detay, null, 1))}</pre></details>` : ""}
+      ${karar ? `<div class="cost"><span>${karar.olcum.ms} ms</span><span>${
+        karar.olcum.input_tokens} tok</span><span>$${karar.olcum.usd.toFixed(7)}</span></div>` : ""}
     </div>`;
+  el.querySelector(".del").onclick = () => sil(i.id, i.baslik);
   return el;
+}
+
+async function sil(id, baslik){
+  if (!confirm(`Arşivden silinsin mi?\n\n${baslik ?? id}\n\nTüm sürümleriyle birlikte gider.`)) return;
+  const r = await fetch("/api/ilan/" + encodeURIComponent(id), {method:"DELETE"});
+  if (!r.ok) return alert("Silinemedi.");
+  $("c-" + id)?.remove();
+  delete ilanlar[id];
+  await yukle();
 }
 
 function render(items){
   const g = $("grid"); g.innerHTML = "";
-  items.forEach(({ilan, karar, kod}) => g.appendChild(kart(ilan, karar, kod)));
+  if (!items.length){
+    g.innerHTML = `<div class="empty"><b>Arşiv boş</b>
+      Bir ilan sayfasında eklentiden <b>Kaydet</b>'e bas, sonra bu sayfayı yenile.</div>`;
+    return;
+  }
+  items.forEach(({ilan, karar, kod}, n) => {
+    const c = kart(ilan, karar, kod);
+    c.style.animationDelay = Math.min(n*22, 400) + "ms";
+    g.appendChild(c);
+  });
 }
 
 function log(msg, cls=""){
   const l = $("log");
   const t = new Date().toLocaleTimeString("tr-TR", {hour12:false});
-  l.insertAdjacentHTML("beforeend", `<div><span class="t">${t}</span> <span class="${cls}">${msg}</span></div>`);
+  l.insertAdjacentHTML("beforeend", `<div><span class="t">${t}</span> <span class="${cls}">${esc(msg)}</span></div>`);
   l.scrollTop = l.scrollHeight;
 }
 
-// --- eleme akisi ----------------------------------------------------------
+/* ---------- eleme akisi ---------- */
 $("run").addEventListener("click", async () => {
   const btn = $("run"); btn.disabled = true;
-  $("log").innerHTML = ""; $("grid").innerHTML = "";
+  $("log").innerHTML = ""; $("grid").innerHTML = ""; not("");
+  document.querySelector("details.logbox").open = true;
   ["m-kod","m-jev","m-kisa"].forEach(k => $(k).textContent = "0");
+  ["l-kisa","l-sor","l-ele","l-kod"].forEach(k => $(k).textContent = "0");
   $("m-usd").textContent = "$0";
+  ["f-kisa","f-sor","f-ele","f-kod"].forEach(k => $(k).style.width = "0");
+  $("f-kalan").style.width = "100%";
 
   const body = {
-    min_fiyat: +$("min_fiyat").value || null,
-    max_fiyat: +$("max_fiyat").value || null,
-    min_m2: +$("min_m2").value || null,
-    max_aidat: +$("max_aidat").value || null,
-    sadece_bos: $("sadece_bos").checked,
+    min_fiyat:+$("min_fiyat").value || null, max_fiyat:+$("max_fiyat").value || null,
+    min_m2:+$("min_m2").value || null, max_aidat:+$("max_aidat").value || null,
+    sadece_bos:$("sadece_bos").checked,
     merkez, yaricap_km: merkez ? (+$("yaricap").value || null) : null,
-    profil: $("profil").value, oncelikler: $("oncelikler").value,
-    kirmizi_cizgiler: $("kirmizi").value,
+    profil:$("profil").value, oncelikler:$("oncelikler").value, kirmizi_cizgiler:$("kirmizi").value,
   };
 
   const t0 = performance.now();
   const res = await fetch("/api/analyze", {method:"POST",
-    headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
-  const reader = res.body.getReader(); const dec = new TextDecoder();
-  let buf = "", kodElenen = 0, kararlar = {ele:0, sana_sor:0, kisa_liste:0}, usd = 0, toplam = 0;
+    headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+  const reader = res.body.getReader(), dec = new TextDecoder();
+  let buf = "", toplam = 0, kodElenen = 0, c = {ele:0, sana_sor:0, kisa_liste:0}, usd = 0;
+  const pct = n => (100 * n / Math.max(toplam,1)) + "%";
+  const guncelleHuni = () => {
+    $("f-kod").style.width = pct(kodElenen);
+    $("f-ele").style.width = pct(c.ele);
+    $("f-sor").style.width = pct(c.sana_sor);
+    $("f-kisa").style.width = pct(c.kisa_liste);
+    $("f-kalan").style.width = pct(toplam - kodElenen - c.ele - c.sana_sor - c.kisa_liste);
+    $("l-kod").textContent = kodElenen; $("l-ele").textContent = c.ele;
+    $("l-sor").textContent = c.sana_sor; $("l-kisa").textContent = c.kisa_liste;
+    $("l-kalan").textContent = toplam - kodElenen - c.ele - c.sana_sor - c.kisa_liste;
+  };
 
   while (true){
     const {done, value} = await reader.read();
@@ -250,19 +484,18 @@ $("run").addEventListener("click", async () => {
       if (!raw.trim()) continue;
       const e = JSON.parse(raw);
 
-      if (e.type === "start"){ toplam = e.toplam; log(`${e.toplam} ilan yüklendi`); }
+      if (e.type === "start"){ toplam = e.toplam; log(`${e.toplam} ilan yüklendi`); guncelleHuni(); }
 
       else if (e.type === "kod"){
         const i = ilanlar[e.id];
         if (!e.gecti){ kodElenen++; $("m-kod").textContent = kodElenen;
-          log(`kod elemesi · ${(i.baslik??e.id).slice(0,42)} — ${e.neden}`, "bad"); }
+          log(`⊘ kod · ${(i.baslik ?? e.id).slice(0,44)} — ${e.neden}`, "bad"); }
         $("grid").appendChild(kart(i, null, e));
+        guncelleHuni();
       }
 
       else if (e.type === "kod_bitti"){
         $("m-kod-s").textContent = `${e.ms} ms · bedava`;
-        $("f-kod").style.width = (100 * e.kalan / Math.max(toplam,1)) + "%";
-        $("f-ele").style.width = (100 * e.elenen / Math.max(toplam,1)) + "%";
         log(`kod filtresi bitti: ${e.elenen} elendi, ${e.kalan} kaldı — ${e.ms} ms`, "ok");
       }
 
@@ -272,39 +505,42 @@ $("run").addEventListener("click", async () => {
 
       else if (e.type === "karar"){
         const i = ilanlar[e.id];
-        kararlar[e.sonuc]++; usd += e.olcum.usd;
-        $("m-jev").textContent = kararlar.ele + kararlar.sana_sor + kararlar.kisa_liste;
-        $("m-kisa").textContent = kararlar.kisa_liste;
+        c[e.sonuc]++; usd += e.olcum.usd;
+        $("m-jev").textContent = c.ele + c.sana_sor + c.kisa_liste;
+        $("m-kisa").textContent = c.kisa_liste;
         $("m-usd").textContent = "$" + usd.toFixed(6);
         $("model").textContent = e.model;
-        const eski = $("c-" + e.id); const yeni = kart(i, e, null);
-        eski ? eski.replaceWith(yeni) : $("grid").prepend(yeni);
+        const yeni = kart(i, e, null);
+        $("c-" + e.id)?.replaceWith(yeni) ?? $("grid").prepend(yeni);
+        if (e.sonuc === "kisa_liste") $("grid").prepend(yeni);
         const cls = e.sonuc === "kisa_liste" ? "ok" : e.sonuc === "sana_sor" ? "warn" : "bad";
-        log(`${e.sonuc} · ${(i.baslik??e.id).slice(0,38)} — skor ${(e.skor*100).toFixed(0)}% · ${e.olcum.ms} ms · $${e.olcum.usd.toFixed(7)}`, cls);
-        $("f-sor").style.width = (100*kararlar.sana_sor/Math.max(toplam,1))+"%";
-        $("f-kisa").style.width = (100*kararlar.kisa_liste/Math.max(toplam,1))+"%";
+        const ik = ROZET[e.sonuc][0];
+        log(`${ik} ${e.sonuc} · ${(i.baslik ?? e.id).slice(0,38)} — %${(e.skor*100).toFixed(0)} · ${e.olcum.ms} ms · $${e.olcum.usd.toFixed(7)}`, cls);
+        guncelleHuni();
       }
 
       else if (e.type === "karar_hata"){ log(`hata · ${e.baslik ?? e.id} — ${e.mesaj}`, "bad"); }
+
       else if (e.type === "hata"){
-        $("banner").innerHTML = `<div class="banner">${e.mesaj}</div>`;
+        not(`<div class="note bad">${esc(e.mesaj)}</div>`);
         log(e.mesaj, "bad");
       }
 
       else if (e.type === "bitti"){
         const o = e.ozet, gecen = (performance.now()-t0)/1000;
-        const ortalama = o.jev_gorulen ? (o.jev_ms/o.jev_gorulen).toFixed(0) : 0;
-        $("m-jev-s").textContent = `${(o.jev_ms/1000).toFixed(1)} sn · ort ${ortalama} ms`;
-        $("m-kisa-s").textContent = `${o.sana_sor} de sana soruldu`;
+        const ort = o.jev_gorulen ? (o.jev_ms/o.jev_gorulen).toFixed(0) : 0;
+        $("m-jev-s").textContent = o.jev_gorulen ? `${(o.jev_ms/1000).toFixed(1)} sn · ort ${ort} ms` : "—";
+        $("m-kisa-s").textContent = `${o.sana_sor ?? 0} tanesi sana soruldu`;
         $("m-usd-s").textContent = o.jev_gorulen
           ? `1000 ilan ≈ $${(o.usd/o.jev_gorulen*1000).toFixed(3)}` : "—";
-        log(`bitti — toplam ${gecen.toFixed(1)} sn, ${o.input_tokens} token, $${o.usd.toFixed(6)}`, "ok");
+        log(`bitti — toplam ${gecen.toFixed(1)} sn, ${o.input_tokens ?? 0} token, $${(o.usd ?? 0).toFixed(6)}`, "ok");
       }
     }
   }
   btn.disabled = false;
 });
 
+ayarDurumu();
 yukle();
 </script>
 </body>
