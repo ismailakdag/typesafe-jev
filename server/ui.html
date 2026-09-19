@@ -347,6 +347,24 @@ $("verify").onclick = async () => {
 const setStatus = (m, c="") => { $("setstatus").className = "status " + c; $("setstatus").textContent = m; };
 
 /* ---------- arsiv ---------- */
+/* Profil sunucuda tutulur; eklentideki anlık değerlendirme de aynısını kullanır. */
+async function profilYukle(){
+  const p = await (await fetch("/api/profil")).json();
+  $("profil").value = p.profil;
+  $("oncelikler").value = p.oncelikler;
+  $("kirmizi").value = p.kirmizi_cizgiler;
+}
+const profilKaydet = () => fetch("/api/profil", {method:"POST",
+  headers:{"Content-Type":"application/json"},
+  body: JSON.stringify({profil:$("profil").value, oncelikler:$("oncelikler").value,
+                        kirmizi_cizgiler:$("kirmizi").value})});
+
+async function kullanimYukle(){
+  const k = await (await fetch("/api/kullanim")).json();
+  $("m-usd-s").textContent = k.cagri
+    ? `bu makinede ${k.cagri} çağrı · $${k.usd.toFixed(6)}` : "henüz çağrı yok";
+}
+
 async function yukle(){
   const d = await (await fetch("/api/ilanlar")).json();
   ilanlar = Object.fromEntries(d.ilanlar.map(i => [i.id, i]));
@@ -463,6 +481,8 @@ $("run").addEventListener("click", async () => {
     profil:$("profil").value, oncelikler:$("oncelikler").value, kirmizi_cizgiler:$("kirmizi").value,
   };
 
+  await profilKaydet();
+
   const t0 = performance.now();
   const res = await fetch("/api/analyze", {method:"POST",
     headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
@@ -537,7 +557,8 @@ $("run").addEventListener("click", async () => {
         $("m-jev-s").textContent = o.jev_gorulen ? `${(o.jev_ms/1000).toFixed(1)} sn · ort ${ort} ms` : "—";
         $("m-kisa-s").textContent = `${o.sana_sor ?? 0} tanesi sana soruldu`;
         $("m-usd-s").textContent = o.jev_gorulen
-          ? `1000 ilan ≈ $${(o.usd/o.jev_gorulen*1000).toFixed(3)}` : "—";
+          ? `1000 ilan ≈ $${(o.usd/o.jev_gorulen*1000).toFixed(3)} · toplam ${o.defter?.cagri ?? 0} çağrı`
+          : "—";
         log(`bitti — toplam ${gecen.toFixed(1)} sn, ${o.input_tokens ?? 0} token, $${(o.usd ?? 0).toFixed(6)}`, "ok");
       }
     }
@@ -546,6 +567,8 @@ $("run").addEventListener("click", async () => {
 });
 
 ayarDurumu();
+profilYukle();
+kullanimYukle();
 yukle();
 </script>
 </body>

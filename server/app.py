@@ -337,6 +337,7 @@ async def analyze_stream(req: AnalyzeRequest) -> AsyncIterator[str]:
             yield line(sonuc)
 
     jev_ms = (time.perf_counter() - jev_basla) * 1000
+    defter = ledger_yaz(toplam_token, round(toplam_usd, 10), "toplu") if toplam_token else ledger_oku()
     yield line({
         "type": "bitti",
         "ozet": {
@@ -346,6 +347,7 @@ async def analyze_stream(req: AnalyzeRequest) -> AsyncIterator[str]:
             "jev_gorulen": len(kalanlar),
             "input_tokens": toplam_token,
             "usd": round(toplam_usd, 8),
+            "defter": {"cagri": defter["cagri"], "usd": defter["usd"]},
             **sayac,
         },
     })
@@ -354,6 +356,128 @@ async def analyze_stream(req: AnalyzeRequest) -> AsyncIterator[str]:
 @app.post("/api/analyze")
 async def analyze(req: AnalyzeRequest) -> StreamingResponse:
     return StreamingResponse(analyze_stream(req), media_type="application/x-ndjson")
+
+
+# --------------------------------------------------------------------------- #
+# Profil: panel ile eklenti ayni olcutleri kullansin diye tek yerde tutulur
+# --------------------------------------------------------------------------- #
+
+PROFIL_PATH = DATA_DIR.parent / "profil.json"
+
+VARSAYILAN_PROFIL = {
+    "profil": "Günlük kullanım, uzun vadeli oturum. İzmir Katip Çelebi Üniversitesi'ne yakınlık önemli.",
+    "oncelikler": "Ulaşım kolaylığı, düşük aidat, taşınmaya hazır olması, site içinde güvenlik ve otopark",
+    "kirmizi_cizgiler": "Kiracılı teslim, tapu sorunu, bilgilerin çelişkili olması",
+}
+
+
+def profil_yukle() -> dict[str, str]:
+    if PROFIL_PATH.exists():
+        try:
+            return {**VARSAYILAN_PROFIL, **json.loads(PROFIL_PATH.read_text(encoding="utf-8"))}
+        except json.JSONDecodeError:
+            pass
+    return dict(VARSAYILAN_PROFIL)
+
+
+class Profil(BaseModel):
+    profil: str
+    oncelikler: str
+    kirmizi_cizgiler: str
+
+
+@app.get("/api/profil")
+def get_profil() -> dict[str, str]:
+    return profil_yukle()
+
+
+@app.post("/api/profil")
+def set_profil(body: Profil) -> dict[str, str]:
+    PROFIL_PATH.write_text(json.dumps(body.model_dump(), ensure_ascii=False, indent=2), encoding="utf-8")
+    return body.model_dump()
+
+
+# --------------------------------------------------------------------------- #
+# Kullanim defteri: her cagrinin token ve maliyeti kaydedilir
+# --------------------------------------------------------------------------- #
+
+LEDGER_PATH = DATA_DIR.parent / "kullanim.json"
+
+
+def ledger_oku() -> dict[str, Any]:
+    if LEDGER_PATH.exists():
+        try:
+            return json.loads(LEDGER_PATH.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            pass
+    return {"cagri": 0, "input_tokens": 0, "usd": 0.0, "son": []}
+
+
+def ledger_yaz(tokens: int, usd: float, tur: str) -> dict[str, Any]:
+    d = ledger_oku()
+    d["cagri"] += 1
+    d["input_tokens"] += tokens
+    d["usd"] = round(d["usd"] + usd, 10)
+    d["son"] = ([{"ts": datetime.now(timezone.utc).isoformat(), "tokens": tokens, "usd": usd, "tur": tur}]
+                + d["son"])[:200]
+    LEDGER_PATH.write_text(json.dumps(d, ensure_ascii=False, indent=2), encoding="utf-8")
+    return d
+
+
+@app.get("/api/kullanim")
+def get_kullanim() -> dict[str, Any]:
+    d = ledger_oku()
+    return {"cagri": d["cagri"], "input_tokens": d["input_tokens"], "usd": d["usd"], "son": d["son"][:20]}
+
+
+# --------------------------------------------------------------------------- #
+# Anlik degerlendirme: eklenti acik sayfayi gonderir, tek cagri ile karar doner
+# --------------------------------------------------------------------------- #
+
+class HizliIstek(BaseModel):
+    model_config = {"extra": "allow"}
+
+    baslik: str | None = None
+    aciklama: str | None = None
+    fields: dict[str, Any] = Field(default_factory=dict)
+    konum_yolu: list[str] = Field(default_factory=list)
+    fiyat_tl: float | None = None
+
+
+@app.post("/api/degerlendir")
+async def degerlendir(body: HizliIstek) -> dict[str, Any]:
+    """Tek bir ilani tek cagri ile degerlendirir. Arsive yazmaz."""
+    if not os.getenv("TYPESAFE_API_KEY"):
+        raise HTTPException(status_code=400, detail="TYPESAFE_API_KEY tanımlı değil")
+
+    p = profil_yukle()
+    kriterler = analyzer.Kriterler(
+        profil=p["profil"], oncelikler=p["oncelikler"], kirmizi_cizgiler=p["kirmizi_cizgiler"]
+    )
+    ilan = body.model_dump()
+
+    t0 = time.perf_counter()
+    async with AsyncTypeSafeClient() as client:
+        cevap = await client.system_one(analyzer.durum(ilan, kriterler), analyzer.sorular())
+    karar = analyzer.karar_ver(cevap)
+    olcum = analyzer.olcum(t0, cevap.usage)
+    toplam = ledger_yaz(olcum["input_tokens"], olcum["usd"], "anlik")
+
+    return {
+        "sonuc": karar.sonuc,
+        "skor": round(karar.skor, 4),
+        "bayraklar": karar.bayraklar,
+        "gerekce": karar.gerekce,
+        "olcum": olcum,
+        "model": cevap.model,
+        "soru_sayisi": len(cevap.answers),
+        "toplam": {"cagri": toplam["cagri"], "usd": toplam["usd"], "input_tokens": toplam["input_tokens"]},
+        "detay": {
+            "nouls": {k: round(v.noul, 3) for k, v in cevap.nouls.items()},
+            "scores": {k: {"skor": round(v.score, 2), "guven": round(v.confidence, 3)} for k, v in cevap.scores.items()},
+            "choices": {k: {"secim": v.choice, "guven": round(v.confidence, 3)} for k, v in cevap.choices.items()},
+        },
+    }
 
 
 @app.get("/api/ilan/{rid}")

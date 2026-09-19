@@ -1,5 +1,7 @@
-// Ilan sayfasi taninirsa kose panelini gosterir. Hicbir sey otomatik gonderilmez:
-// her kayit tek bir tikla, senin istegin uzerine olur.
+// Ilan sayfasi taninirsa kose panelini gosterir.
+// Hicbir sey kendiliginden gonderilmez: degerlendirme de kayit da tek tikla,
+// senin istegin uzerine olur. Otomatik degerlendirme kapali gelir ve acilsa bile
+// ayni ilan icin sayfa basina bir kez calisir — habersiz kredi harcamasin.
 
 (() => {
   if (window.__ilanYakalaPanel) return;
@@ -8,52 +10,137 @@
   const api = window.__ilanYakala;
   if (!api || !api.isSahibindenListing()) return;
 
+  const ROZET = {
+    kisa_liste: ["✓", "favoriye değer", "iy-ok"],
+    sana_sor: ["?", "emin değil", "iy-warn"],
+    ele: ["✕", "değmez", "iy-bad"],
+  };
+
   const panel = document.createElement("div");
   panel.id = "iy-panel";
   panel.innerHTML = `
-    <div class="iy-title">Bu ilanı arşivine kaydedeyim mi?</div>
-    <div class="iy-sub" id="iy-sub">Sayfadaki tüm alanlar, konum ve açıklama alınır.</div>
+    <div class="iy-head">
+      <span class="iy-title">İlan Yakala</span>
+      <button class="iy-x" id="iy-close" title="Kapat">×</button>
+    </div>
+    <div class="iy-sub" id="iy-sub">Bu ilanı değerlendireyim mi?</div>
+    <div id="iy-result"></div>
     <div class="iy-row">
-      <button id="iy-save" class="iy-btn iy-primary">Kaydet</button>
-      <button id="iy-close" class="iy-btn">Kapat</button>
-    </div>`;
+      <button id="iy-eval" class="iy-btn iy-primary">Değerlendir</button>
+      <button id="iy-save" class="iy-btn">Arşive kaydet</button>
+    </div>
+    <label class="iy-auto"><input type="checkbox" id="iy-oto"> Açtığım her ilanı otomatik değerlendir</label>
+    <div class="iy-ledger" id="iy-ledger"></div>`;
   document.body.appendChild(panel);
 
-  const sub = panel.querySelector("#iy-sub");
-  const saveBtn = panel.querySelector("#iy-save");
+  const $ = (id) => panel.querySelector("#" + id);
+  const sub = $("iy-sub");
+  const sonuc = $("iy-result");
+  const defter = $("iy-ledger");
 
-  panel.querySelector("#iy-close").addEventListener("click", () => panel.remove());
+  $("iy-close").addEventListener("click", () => panel.remove());
 
-  saveBtn.addEventListener("click", () => {
-    saveBtn.disabled = true;
-    sub.textContent = "Okunuyor…";
-    let record;
+  const oku = () => {
     try {
-      record = api.extract();
+      return api.extract();
     } catch (error) {
-      sub.textContent = "Okuma hatası: " + error.message;
-      saveBtn.disabled = false;
+      sub.textContent = "Sayfa okunamadı: " + error.message;
+      return null;
+    }
+  };
+
+  const gonder = (type, record) =>
+    new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type, record }, (yanit) => {
+        if (chrome.runtime.lastError) resolve({ ok: false, error: chrome.runtime.lastError.message });
+        else resolve(yanit ?? { ok: false, error: "Sunucuya ulaşılamadı" });
+      });
+    });
+
+  // --- anlik degerlendirme -------------------------------------------------
+  let calisiyor = false;
+
+  async function degerlendir() {
+    if (calisiyor) return;
+    calisiyor = true;
+    const btn = $("iy-eval");
+    btn.disabled = true;
+    panel.classList.remove("iy-ok", "iy-warn", "iy-bad");
+    sonuc.innerHTML = "";
+    sub.textContent = "Jev'e soruluyor…";
+
+    const record = oku();
+    if (!record) { btn.disabled = false; calisiyor = false; return; }
+
+    const t0 = performance.now();
+    const y = await gonder("degerlendir", record);
+    const gidisDonus = Math.round(performance.now() - t0);
+
+    btn.disabled = false;
+    calisiyor = false;
+
+    if (!y.ok) {
+      panel.classList.add("iy-bad");
+      sub.textContent = "Olmadı: " + y.error;
       return;
     }
 
-    const d = record._extraction;
-    sub.textContent = `${d.pair_count} alan · ${d.photo_count} foto · konum: ${d.coords_source || "yok"} — gönderiliyor…`;
+    const [ikon, etiket, sinif] = ROZET[y.sonuc] ?? ["", y.sonuc, ""];
+    panel.classList.add(sinif);
+    sub.textContent = `${record._extraction.pair_count} alan okundu · ${y.soru_sayisi} soru tek çağrıda`;
 
-    chrome.runtime.sendMessage({ type: "capture", record }, (response) => {
-      saveBtn.disabled = false;
-      if (chrome.runtime.lastError) {
-        sub.textContent = "Eklenti hatası: " + chrome.runtime.lastError.message;
-        return;
-      }
-      if (!response || !response.ok) {
-        sub.textContent = "Sunucuya ulaşılamadı. `uv run python -m server.app` çalışıyor mu?";
-        panel.classList.add("iy-error");
-        return;
-      }
-      panel.classList.add("iy-done");
-      const eksik = d.missing.length ? ` (eksik: ${d.missing.join(", ")})` : "";
-      sub.textContent = `Kaydedildi — ${response.id}, ${response.capture_count}. sürüm${eksik}`;
-      saveBtn.textContent = "Tekrar kaydet";
-    });
+    const etiketler = [
+      ...y.bayraklar.map((b) => `<span class="iy-tag iy-tag-bad">⚑ ${b}</span>`),
+      ...y.gerekce.map((g) => `<span class="iy-tag">${g}</span>`),
+    ].join("");
+
+    sonuc.innerHTML = `
+      <div class="iy-verdict ${sinif}"><span class="iy-icon">${ikon}</span>
+        <span>${etiket}</span><b>${Math.round(y.skor * 100)}%</b></div>
+      <div class="iy-bar"><i style="width:${Math.round(y.skor * 100)}%"></i></div>
+      <div class="iy-tags">${etiketler}</div>
+      <div class="iy-cost">
+        <span>${y.olcum.ms} ms<small> (ağ dahil ${gidisDonus})</small></span>
+        <span>${y.olcum.input_tokens} token</span>
+        <span class="iy-usd">$${y.olcum.usd.toFixed(7)}</span>
+      </div>`;
+
+    const t = y.toplam;
+    const binTane = (t.usd / Math.max(t.cagri, 1)) * 1000;
+    defter.textContent =
+      `bu makinede toplam ${t.cagri} çağrı · $${t.usd.toFixed(6)} — bu hızla 1000 ilan ≈ $${binTane.toFixed(3)}`;
+  }
+
+  $("iy-eval").addEventListener("click", degerlendir);
+
+  // --- arsive kaydet -------------------------------------------------------
+  $("iy-save").addEventListener("click", async () => {
+    const btn = $("iy-save");
+    btn.disabled = true;
+    const record = oku();
+    if (!record) { btn.disabled = false; return; }
+    const d = record._extraction;
+    sub.textContent = `${d.pair_count} alan · ${d.photo_count} foto · konum: ${d.coords_source ?? "yok"} — kaydediliyor…`;
+    const y = await gonder("capture", record);
+    btn.disabled = false;
+    if (!y.ok) {
+      sub.textContent = "Kaydedilemedi: " + y.error;
+      return;
+    }
+    const eksik = d.missing.length ? ` (eksik: ${d.missing.join(", ")})` : "";
+    sub.textContent = `Arşive kaydedildi — ${y.capture_count}. sürüm${eksik}`;
+    btn.textContent = "Tekrar kaydet";
+  });
+
+  // --- otomatik degerlendirme ----------------------------------------------
+  const OTO = "iy_oto_degerlendir";
+  chrome.storage.sync.get(OTO, (d) => {
+    const acik = Boolean(d[OTO]);
+    $("iy-oto").checked = acik;
+    if (acik) degerlendir();
+  });
+  $("iy-oto").addEventListener("change", (e) => {
+    chrome.storage.sync.set({ [OTO]: e.target.checked });
+    if (e.target.checked) degerlendir();
   });
 })();
