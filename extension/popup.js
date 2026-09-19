@@ -103,6 +103,10 @@ function satir(i) {
       ${i.coords ? `<div class="co">konum ${i.coords.lat.toFixed(5)}, ${i.coords.lon.toFixed(5)}
         (${esc(i.coords.source)})</div>` : '<div class="co">konum yok</div>'}
       <div class="co">${i.foto_sayisi ?? 0} foto · son görülme ${esc((i.last_seen ?? "").slice(0, 10))}</div>
+      ${i.aciklama
+        ? `<div class="dh">İlan açıklaması · ${i.aciklama.length} karakter</div>
+           <div class="desc">${esc(i.aciklama)}</div>`
+        : '<div class="co">açıklama yakalanamadı</div>'}
     </div>` : ""}`;
 }
 

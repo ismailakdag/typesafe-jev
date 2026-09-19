@@ -8,6 +8,24 @@
   const clean = (s) => (s == null ? null : String(s).replace(/\s+/g, " ").trim() || null);
   const txt = (el) => clean(el && el.textContent);
 
+  // Aciklama gibi serbest metinlerde satir yapisi anlam tasir ("Site Olanaklari:"
+  // basligi, madde listeleri). Satir ici bosluklari sadelestirir, satir sonlarini
+  // korur, ust uste bos satirlari teke indirir.
+  const cleanLines = (s) => {
+    if (s == null) return null;
+    const lines = String(s)
+      .replace(/\r/g, "")
+      .split("\n")
+      .map((l) => l.replace(/[ \t ]+/g, " ").trim());
+    const out = [];
+    for (const l of lines) {
+      if (!l && !out.length) continue;
+      if (!l && !out[out.length - 1]) continue;
+      out.push(l);
+    }
+    return out.join("\n").trim() || null;
+  };
+
   // "7.200.000 TL" -> 7200000 ; "120" -> 120 ; "6-10 arasi" -> 6 (ilk sayi)
   function trNumber(s) {
     if (!s) return null;
@@ -181,7 +199,7 @@
     for (const selector of DESCRIPTION_SELECTORS) {
       for (const el of document.querySelectorAll(selector)) {
         if (el.closest(NOT_DESCRIPTION)) continue;
-        const t = clean(el.innerText);
+        const t = cleanLines(el.innerText);
         if (t && t.length > 80) return t;
       }
     }
@@ -196,7 +214,7 @@
         bestLen = t.length;
       }
     });
-    return best ? clean(best.innerText) : null;
+    return best ? cleanLines(best.innerText) : null;
   }
 
   function selectedFeatures() {
@@ -298,7 +316,7 @@
       foto: images(),
       meta: metaTags(),
       json_ld: jsonLd(),
-      raw_text: (clean(document.body.innerText) || "").slice(0, 60000),
+      raw_text: (cleanLines(document.body.innerText) || "").slice(0, 60000),
     };
     record.ilan_no = record.ilan_no || record.fields.ilan_no || null;
     record._extraction = {

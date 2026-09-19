@@ -161,8 +161,11 @@ details.logbox[open] summary::before{transform:rotate(90deg)}
   font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);
   display:flex;justify-content:space-between;gap:6px}
 details.raw summary{cursor:pointer;font-size:11.5px;color:var(--muted)}
+details.raw summary:hover{color:var(--ink)}
 details.raw pre{font-size:10.5px;background:var(--plane);padding:9px;border-radius:7px;
   overflow:auto;max-height:210px;border:1px solid var(--line);margin:6px 0 0}
+details.raw pre.desc{font:12px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
+  white-space:pre-wrap;color:var(--ink-2);max-height:260px}
 
 /* ---------- bos durum / uyari ---------- */
 .empty{grid-column:1/-1;text-align:center;padding:52px 20px;color:var(--muted);
@@ -400,6 +403,8 @@ function kart(i, karar, kod){
       ${karar ? `<div class="score"><div class="bar"><i style="width:${Math.round(karar.skor*100)}%"></i></div>
                  <b>${(karar.skor*100).toFixed(0)}%</b></div>` : ""}
       <div class="tags">${tags.join("")}</div>
+      ${i.aciklama ? `<details class="raw"><summary>ilan açıklaması (${i.aciklama.length} kr)</summary><pre class="desc">${
+        esc(i.aciklama)}</pre></details>` : `<div class="tag bad">açıklama yakalanamadı</div>`}
       ${karar ? `<details class="raw"><summary>ham yargılar</summary><pre>${
         esc(JSON.stringify(karar.detay, null, 1))}</pre></details>` : ""}
       ${karar ? `<div class="cost"><span>${karar.olcum.ms} ms</span><span>${
