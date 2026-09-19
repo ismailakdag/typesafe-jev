@@ -130,6 +130,39 @@ textarea#state{min-height:260px;font:12.5px/1.55 ui-monospace,Menlo,Consolas,mon
 
 <script>
 const $ = (id) => document.getElementById(id);
+
+/* Sayfa dosyadan acilirsa fetch("/api/...") file:///api/... olur ve
+   "Failed to fetch" der. Sebebi acikca soyle. */
+(() => {
+  if (location.protocol !== "file:") return;
+  document.body.innerHTML = `
+    <div style="max-width:560px;margin:70px auto;padding:22px 26px;border-radius:14px;
+      border:1px solid #e1e0d9;background:#fff;color:#0b0b0b;
+      font:14px/1.65 system-ui,-apple-system,'Segoe UI',sans-serif">
+      <h2 style="margin:0 0 10px;font-size:17px">Bu sayfa dosyadan açıldı</h2>
+      <p>Sayfa görünüyor ama sunucuya hiçbir istek gidemez — tarayıcı
+        <code>file://</code> adresinden <code>/api/oyun</code> uçlarına ulaşamıyor.
+        “Failed to fetch” hatasının sebebi bu.</p>
+      <p style="margin-bottom:6px"><b>Doğrusu:</b> önce sunucuyu başlat</p>
+      <pre style="background:#f9f9f7;border:1px solid #e1e0d9;border-radius:8px;
+        padding:10px 12px;font:12.5px ui-monospace,Menlo,Consolas,monospace;margin:0 0 12px">basla.cmd</pre>
+      <p style="margin-bottom:6px">sonra tarayıcıda şu adresi aç:</p>
+      <p><a id="dogru-adres" href="#" style="font:13px ui-monospace,Menlo,Consolas,monospace"></a></p>
+    </div>`;
+  const yol = location.pathname.split("/").pop().replace(".html", "");
+  const ad = {macera:"macera", yazarken:"yazarken", oyun:"oyun"}[yol] ?? "";
+  const url = "http://127.0.0.1:8765/" + ad;
+  const a = document.getElementById("dogru-adres");
+  a.href = url; a.textContent = url;
+})();
+
+/** fetch hatalarini anlasilir hale getirir. */
+function agHatasi(e){
+  if (e instanceof TypeError)
+    return "Sunucuya ulaşılamadı. basla.cmd çalışıyor mu? (http://127.0.0.1:8765)";
+  return e.message;
+}
+
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const TIP = {noul:"evet / hayır", score:"dereceli", choice:"seçenekli"};
 
@@ -336,9 +369,16 @@ $("calistir").onclick = async () => {
   let state = $("state").value;
   try { const j = JSON.parse(state); if (j && typeof j === "object") state = j; } catch {}
 
-  const r = await fetch("/api/oyun", {method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({state, sorular: oku()})});
-  const y = await r.json();
+  let r, y;
+  try {
+    r = await fetch("/api/oyun", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({state, sorular: oku()})});
+    y = await r.json();
+  } catch (e) {
+    btn.disabled = false;
+    $("sonuc").innerHTML = eskiNot + `<div class="not bad">${esc(agHatasi(e))}</div>`;
+    return;
+  }
   btn.disabled = false;
 
   if (!r.ok){
