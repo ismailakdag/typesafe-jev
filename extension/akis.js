@@ -12,9 +12,14 @@
 (() => {
   const HIZLAR = [
     { ad: "1x", carpan: 1, not: "gerçek hız" },
-    { ad: "10x", carpan: 10, not: "10 kat yavaş" },
-    { ad: "100x", carpan: 100, not: "100 kat yavaş" },
+    { ad: "2x", carpan: 2, not: "2 kat yavaş" },
+    { ad: "5x", carpan: 5, not: "5 kat yavaş" },
+    { ad: "10x", carpan: 10, not: "10 kat yavaş — adım adım" },
   ];
+
+  // Model bekleyisi gercek bir sure; yavaslatinca uzatmak bir sey ogretmez, sadece
+  // bos ekrana baktirir. Carpani uygularken bir tavanla sinirlaniyor.
+  const MODEL_TAVAN_MS = 2200;
 
   // Gosterim adimlarinin taban sureleri (ms). Model bekleyisi gercek olculen sure.
   const TABAN = { state: 70, cevap: 9, kapi: 45, terim: 60, final: 140 };
@@ -74,7 +79,7 @@
     });
 
     const hizDugmeleri = kat.querySelectorAll("[data-hiz]");
-    let secili = 1; // varsayilan 10x: adimlar izlenebilir olsun
+    let secili = 2; // varsayilan 5x: adimlar izlenebilir ama bekleme uzamasin
     const isaretle = () =>
       hizDugmeleri.forEach((b, i) => b.classList.toggle("secili", i === secili));
     hizDugmeleri.forEach((b, i) =>
@@ -271,7 +276,11 @@
     adim("iy-a2");
     const lanes = [...kat.querySelectorAll(".iy-lane")];
     lanes.forEach((l) => l.classList.add("calisiyor"));
-    await bekle(k.asamalar.model_ms); // gercek olculen model + ag suresi
+    // Gercek olculen model + ag suresi, tavanla sinirli: yavaslatma adimlari
+    // izlemek icin, bekleyisi uzatmak icin degil.
+    await new Promise((r) =>
+      setTimeout(r, Math.min(k.asamalar.model_ms * carpan(), MODEL_TAVAN_MS))
+    );
     if (bitti()) return;
     lanes.forEach((l) => l.classList.replace("calisiyor", "dolu"));
 

@@ -53,6 +53,11 @@ Panelde **Ayarlar** → anahtarı yapıştır → **Kaydet** → **Doğrula**.
   yazılmaz, yeni sürüm eklenir (fiyat geçmişi).
 - **Toplu eleme** — panelde kesin sınırları ve profili ayarla, *Elemeyi çalıştır*.
   Önce kod filtresi (bedava, ~0.02 ms), kalanlar Jev'e gider.
+- **Karar akışı** — hem ilan sayfasındaki panelden hem eleme panelindeki karttan
+  *Nasıl karar verdi?*. 22 soru eş zamanlı dolar (gerçekten öyle dönüyorlar),
+  sonra kod kapıları sırayla açılır ve ağırlıklı skor terim terim birikir.
+  Gösterim hızı 1x / 2x / 5x / 10x. Üstteki çubuk ölçülmüş gerçek süreleri
+  gösterir; model bekleyişi yavaşlatmada tavanlanır, boş ekrana baktırmasın diye.
 - **Arşiv yönetimi** — eklenti popup'ından ara, detay aç, ilana git, sil.
 
 ## Ölçülen maliyet

@@ -22,6 +22,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typesafe_sdk import AsyncTypeSafeClient
 
@@ -149,6 +150,19 @@ def all_summaries() -> list[dict[str, Any]]:
 def list_ilanlar() -> dict[str, Any]:
     docs = all_summaries()
     return {"count": len(docs), "ilanlar": docs}
+
+
+def karar_kaydet(rid: str, karar: dict[str, Any]) -> None:
+    """Toplu elemenin verdigi karari arsivdeki son surume yazar.
+
+    Karar, o surumun icerigi uzerinde verildigi icin oraya ait. Boylece panel
+    yeniden acildiginda karar yeniden cagri yapilmadan gosterilebiliyor.
+    """
+    doc = load(rid)
+    if doc is None or not doc.get("captures"):
+        return
+    doc["captures"][-1]["karar"] = {**karar, "verildi": datetime.now(timezone.utc).isoformat()}
+    path_for(rid).write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 @app.delete("/api/ilan/{rid}")
@@ -298,6 +312,7 @@ async def analyze_stream(req: AnalyzeRequest) -> AsyncIterator[str]:
                 except Exception as error:  # ag, kota, dogrulama — ilani atlamak yerine bildir
                     return {"type": "karar_hata", "id": ilan["id"], "baslik": ilan["baslik"], "mesaj": str(error)}
                 karar = analyzer.karar_ver(cevap)
+                olcum = analyzer.olcum(t0, cevap.usage)
                 return {
                     "type": "karar",
                     "id": ilan["id"],
@@ -305,12 +320,22 @@ async def analyze_stream(req: AnalyzeRequest) -> AsyncIterator[str]:
                     "skor": round(karar.skor, 4),
                     "bayraklar": karar.bayraklar,
                     "gerekce": karar.gerekce,
-                    "olcum": analyzer.olcum(t0, cevap.usage),
+                    "kapilar": karar.kapilar,
+                    "terimler": karar.terimler,
+                    "esikler": {
+                        "bayrak": analyzer.BAYRAK_ESIGI, "kararsiz_alt": analyzer.KARARSIZ_ALT,
+                        "skor": analyzer.SKOR_ESIGI, "guven": analyzer.GUVEN_ESIGI,
+                    },
+                    "asamalar": {"state_ms": 0.0, "model_ms": olcum["ms"], "karar_ms": 0.1},
+                    "soru_sayisi": len(cevap.answers),
+                    "olcum": olcum,
                     "model": cevap.model,
                     "detay": {
                         "nouls": {k: round(v.noul, 3) for k, v in cevap.nouls.items()},
                         "scores": {
-                            k: {"skor": round(v.score, 2), "guven": round(v.confidence, 3), "seviye": v.legend}
+                            k: {"skor": round(v.score, 2), "guven": round(v.confidence, 3),
+                                "seviye": v.legend,
+                                "olasiliklar": {str(kk): round(vv, 3) for kk, vv in v.probabilities.items()}}
                             for k, v in cevap.scores.items()
                         },
                         "choices": {
@@ -333,6 +358,7 @@ async def analyze_stream(req: AnalyzeRequest) -> AsyncIterator[str]:
                 toplam_usd += sonuc["olcum"]["usd"]
                 toplam_token += sonuc["olcum"]["input_tokens"]
                 sayac[sonuc["sonuc"]] += 1
+                karar_kaydet(sonuc["id"], {k: v for k, v in sonuc.items() if k not in ("type", "id")})
             else:
                 sayac["hata"] += 1
             yield line(sonuc)
@@ -543,6 +569,9 @@ def index() -> str:
 
 
 EKLENTI_DIR = Path(__file__).resolve().parent.parent / "extension"
+
+# Panel, eklentiyle ayni akis kodunu kullanir; iki kopya tutulmuyor.
+app.mount("/ext", StaticFiles(directory=EKLENTI_DIR), name="ext")
 
 
 @app.get("/akis/{rid}", response_class=HTMLResponse)

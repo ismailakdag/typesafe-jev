@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>İlan Eleme</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="/ext/akis.css">
 <style>
 /* Renkler dataviz referans paletinden. Durum renkleri (good/warning/serious/
    critical) her zaman simge + etiketle birlikte kullanilir; renk tek basina
@@ -160,7 +161,8 @@ details.logbox[open] summary::before{transform:rotate(90deg)}
 .cost{margin-top:auto;padding-top:8px;border-top:1px solid var(--line);
   font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--muted);
   display:flex;justify-content:space-between;gap:6px}
-.akis-link{font-size:11.5px;color:var(--seq);text-decoration:none;font-weight:550}
+.akis-link{font-size:11.5px;color:var(--seq);font-weight:600;background:none;border:0;
+  padding:0;cursor:pointer;text-align:left;font-family:inherit}
 .akis-link:hover{text-decoration:underline}
 details.raw summary{cursor:pointer;font-size:11.5px;color:var(--muted)}
 details.raw summary:hover{color:var(--ink)}
@@ -289,6 +291,7 @@ dialog::backdrop{background:rgba(11,11,11,.42);backdrop-filter:blur(2px)}
 </dialog>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/ext/akis.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
 const tl = (n) => n == null ? "—" : n.toLocaleString("tr-TR") + " TL";
@@ -426,8 +429,7 @@ function kart(i, karar, kod){
       ${karar ? `<div class="score"><div class="bar"><i style="width:${Math.round(karar.skor*100)}%"></i></div>
                  <b>${(karar.skor*100).toFixed(0)}%</b></div>` : ""}
       <div class="tags">${tags.join("")}</div>
-      ${karar ? `<a class="akis-link" href="/akis/${encodeURIComponent(i.id)}" target="_blank"
-        rel="noreferrer">karar akışını izle ▸</a>` : ""}
+      ${karar ? `<button class="akis-link" data-akis>Nasıl karar verdi? ▸</button>` : ""}
       ${i.aciklama ? `<details class="raw"><summary>ilan açıklaması (${i.aciklama.length} kr)</summary><pre class="desc">${
         esc(i.aciklama)}</pre></details>` : `<div class="tag bad">açıklama yakalanamadı</div>`}
       ${karar ? `<details class="raw"><summary>ham yargılar</summary><pre>${
@@ -436,6 +438,9 @@ function kart(i, karar, kod){
         karar.olcum.input_tokens} tok</span><span>$${karar.olcum.usd.toFixed(7)}</span></div>` : ""}
     </div>`;
   el.querySelector(".del").onclick = () => sil(i.id, i.baslik);
+  el.querySelector("[data-akis]")?.addEventListener("click", () =>
+    window.__ilanAkis.goster(karar, i.baslik ?? i.id)
+  );
   return el;
 }
 
