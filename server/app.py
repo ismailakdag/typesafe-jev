@@ -667,6 +667,68 @@ EKLENTI_DIR = Path(__file__).resolve().parent.parent / "extension"
 app.mount("/ext", StaticFiles(directory=EKLENTI_DIR), name="ext")
 
 
+# --------------------------------------------------------------------------- #
+# Oyun alani: serbest state + serbest sorular. Karar mantigi yok, ham cevap.
+# --------------------------------------------------------------------------- #
+
+class OyunIstek(BaseModel):
+    state: Any                                  # duz metin ya da JSON nesnesi
+    sorular: list[dict[str, Any]]
+
+
+@app.post("/api/oyun")
+async def oyun(body: OyunIstek) -> dict[str, Any]:
+    """Verilen state ve sorulari oldugu gibi Jev'e sorar.
+
+    Burada kirmizi bayrak, agirlik, esik yok: ne sorduysan onun ham cevabi.
+    Modelin neyi yapip neyi yapamadigini gormek icin.
+    """
+    if not os.getenv("TYPESAFE_API_KEY"):
+        raise HTTPException(status_code=400, detail="TYPESAFE_API_KEY tanımlı değil")
+    if not body.sorular:
+        raise HTTPException(status_code=400, detail="En az bir soru gerekli")
+
+    sorular: dict[str, Any] = {}
+    for i, e in enumerate(body.sorular):
+        ad = (e.get("ad") or f"soru{i + 1}").strip()
+        try:
+            sorular[ad] = analyzer.ek_soruya_cevir(e)
+        except (ValueError, TypeError) as hata:
+            raise HTTPException(status_code=400, detail=f"{ad}: {hata}") from hata
+
+    t0 = time.perf_counter()
+    async with AsyncTypeSafeClient() as client:
+        cevap = await client.system_one(body.state, sorular)
+    olcum = analyzer.olcum(t0, cevap.usage)
+    defter = ledger_yaz(olcum["input_tokens"], olcum["usd"], "oyun")
+
+    cevaplar = {}
+    for ad, a in cevap.nouls.items():
+        cevaplar[ad] = {"tip": "noul", "deger": round(a.noul, 4)}
+    for ad, a in cevap.choices.items():
+        cevaplar[ad] = {
+            "tip": "choice", "secim": a.choice, "guven": round(a.confidence, 4),
+            "olasiliklar": {k: round(v, 4) for k, v in a.probabilities.items()},
+        }
+    for ad, a in cevap.scores.items():
+        cevaplar[ad] = {
+            "tip": "score", "skor": round(a.score, 3), "guven": round(a.confidence, 4),
+            "seviye": {str(k): v for k, v in a.legend.items()},
+            "olasiliklar": {str(k): round(v, 4) for k, v in a.probabilities.items()},
+        }
+
+    return {
+        "cevaplar": cevaplar, "olcum": olcum, "model": cevap.model,
+        "soru_sayisi": len(cevap.answers),
+        "toplam": {"cagri": defter["cagri"], "usd": defter["usd"]},
+    }
+
+
+@app.get("/oyun", response_class=HTMLResponse)
+def oyun_sayfasi() -> str:
+    return (Path(__file__).resolve().parent / "oyun.html").read_text(encoding="utf-8")
+
+
 @app.get("/akis/{rid}", response_class=HTMLResponse)
 def akis(rid: str) -> str:
     """Arsivdeki bir ilanin kararini akis olarak oynatir.

@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jev Oyun Alanı</title>
+<style>
+:root{
+  color-scheme: light;
+  --surface:#fcfcfb; --plane:#f9f9f7; --raise:#fff;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --line:#e1e0d9; --ring:rgba(11,11,11,.10);
+  --good:#0ca30c; --warning:#fab219; --critical:#d03b3b;
+  --seq:#2a78d6; --seq-soft:#cde2fb;
+  --shadow:0 1px 2px rgba(11,11,11,.04), 0 8px 24px rgba(11,11,11,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --surface:#1a1a19; --plane:#0d0d0d; --raise:#222221;
+    --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
+    --line:#2c2c2a; --ring:rgba(255,255,255,.10);
+    --seq:#3987e5; --seq-soft:#184f95;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+  font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{display:flex;align-items:center;gap:14px;padding:0 20px;height:56px;
+  background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:900}
+header h1{font-size:15px;font-weight:650;margin:0}
+.muted{font-size:12.5px;color:var(--muted)}
+.spacer{margin-left:auto}
+a.ghost,button.ghost{border:1px solid var(--ring);background:var(--surface);color:var(--ink);
+  border-radius:8px;padding:6px 11px;font:inherit;font-size:12.5px;cursor:pointer;text-decoration:none}
+a.ghost:hover,button.ghost:hover{background:var(--plane)}
+
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;padding:16px;align-items:start}
+@media (max-width:880px){.wrap{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;
+  box-shadow:var(--shadow)}
+.sec{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+  font-weight:650;margin:0 0 9px;display:flex;align-items:center;gap:8px}
+.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+label{display:block;margin:9px 0 4px;font-size:11.5px;color:var(--ink-2)}
+input,textarea,select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;
+  font:inherit;font-size:13px;background:var(--raise);color:var(--ink)}
+textarea{resize:vertical;line-height:1.5}
+textarea#state{min-height:260px;font:12.5px/1.55 ui-monospace,Menlo,Consolas,monospace}
+.onay{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.onay button{font-size:11.5px;padding:5px 10px}
+.run{width:100%;margin-top:14px;padding:11px;border:0;border-radius:9px;background:var(--ink);
+  color:var(--surface);font:inherit;font-weight:650;cursor:pointer}
+.run:disabled{opacity:.45;cursor:default}
+
+.soru{border:1px solid var(--line);border-radius:10px;padding:11px;margin-top:9px;background:var(--plane)}
+.soru .ust{display:grid;grid-template-columns:1fr 120px 28px;gap:7px;align-items:end}
+.soru .sil{border:1px solid var(--line);background:var(--surface);color:var(--muted);
+  border-radius:7px;height:31px;cursor:pointer;font-size:15px;line-height:1}
+.soru .sil:hover{background:var(--critical);color:#fff;border-color:var(--critical)}
+.soru small{color:var(--muted);font-size:10.5px}
+.ipucu{font-size:11px;color:var(--muted);margin-top:7px;line-height:1.5}
+
+.sonuc{margin-top:10px}
+.cev{border:1px solid var(--line);border-radius:10px;padding:11px 13px;margin-bottom:8px;
+  background:var(--surface)}
+.cev .bas{display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
+.cev .ad{font-weight:650;font-size:13px}
+.cev .tip{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cev .buyuk{margin-left:auto;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.bar{height:7px;background:var(--seq-soft);border-radius:4px;overflow:hidden;position:relative}
+.bar i{display:block;height:100%;background:var(--seq);transition:width .5s cubic-bezier(.3,.9,.3,1)}
+.bar u{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--critical);opacity:.5}
+.sat{display:grid;grid-template-columns:150px 1fr 46px;gap:8px;align-items:center;
+  font-size:11.5px;color:var(--muted);margin-top:4px}
+.sat.sec{color:var(--ink);font-weight:650}
+.sat b{text-align:right;font-variant-numeric:tabular-nums}
+.minibar{height:6px;background:var(--plane);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.minibar i{display:block;height:100%;background:#86b6ef}
+.sat.sec .minibar i{background:var(--seq)}
+.olcum{display:flex;gap:14px;flex-wrap:wrap;font:11px ui-monospace,Menlo,Consolas,monospace;
+  color:var(--muted);margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+.not{padding:11px 13px;border-radius:10px;margin-bottom:10px;font-size:12.5px;line-height:1.55;
+  border:1px solid color-mix(in srgb,var(--warning) 45%,transparent);
+  background:color-mix(in srgb,var(--warning) 12%,var(--surface))}
+.not.bad{border-color:color-mix(in srgb,var(--critical) 40%,transparent);
+  background:color-mix(in srgb,var(--critical) 10%,var(--surface))}
+.not b{font-weight:650}
+.bos{color:var(--muted);font-size:12.5px;padding:18px;text-align:center;
+  border:1.5px dashed var(--line);border-radius:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Jev Oyun Alanı</h1>
+  <span class="muted" id="durum">—</span>
+  <span class="spacer"></span>
+  <span class="muted" id="defter"></span>
+  <a class="ghost" href="/">Eleme paneli</a>
+</header>
+
+<div class="wrap">
+  <section class="panel">
+    <h2 class="sec">Örnekler</h2>
+    <div class="onay" id="ornekler"></div>
+
+    <h2 class="sec">Durum <small class="muted" style="text-transform:none;letter-spacing:0">state</small></h2>
+    <textarea id="state" spellcheck="false"></textarea>
+    <div class="ipucu">Düz metin ya da JSON yazabilirsin. JSON yazarsan alan adları
+      soruların içinde <code>`alan.yol`</code> şeklinde anılabilir.</div>
+  </section>
+
+  <section class="panel">
+    <h2 class="sec">Sorular</h2>
+    <div id="sorular"></div>
+    <button class="ghost" id="ekle" style="margin-top:10px">+ Soru ekle</button>
+    <button class="run" id="calistir">Jev'e sor</button>
+    <div class="ipucu" id="uyari"></div>
+  </section>
+</div>
+
+<div class="wrap" style="grid-template-columns:1fr">
+  <section class="panel">
+    <h2 class="sec">Cevaplar</h2>
+    <div id="sonuc"><div class="bos">Henüz çalıştırmadın.</div></div>
+  </section>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const TIP = {noul:"evet / hayır", score:"dereceli", choice:"seçenekli"};
+
+let sorular = [];
+
+/* ---------- örnekler ---------- */
+const ORNEKLER = {
+  "PC fiyatı — yanlış kurulum": {
+    not: {tur:"bad", metin:"<b>Bu örnek bilerek hatalı.</b> Jev'in piyasa fiyatı bilgisi yok ve sayısal karşılaştırmada zayıf. Fiyatın iyi olup olmadığını soruyoruz ama karşılaştıracağı hiçbir şey vermiyoruz. Cevaba değil, <b>güven</b> değerine bak — düşük çıkması gerekir."},
+    state: `Satılık masaüstü bilgisayar
+Ryzen 7 5700X, 32 GB DDR4, RTX 4070 12 GB, 1 TB NVMe
+Kullanım: 1.5 yıl, faturası var
+Fiyat: 38.000 TL`,
+    sorular: [
+      {ad:"fiyat_iyi", tip:"score", instructions:"Bu bilgisayarın fiyatı iyi mi?",
+       seviyeler:["Çok pahalı","Pahalı","Makul","Çok uygun"]},
+      {ad:"ucuz_mu", tip:"noul", instructions:"Bu bilgisayar piyasa değerinin altında satılıyor."},
+    ],
+  },
+
+  "PC fiyatı — doğru kurulum": {
+    not: {tur:"ok", metin:"<b>Aynı soru, doğru bölünmüş.</b> Karşılaştırma verisini state'e koyduk. Jev'e <i>sayı karşılaştırması</i> değil, <i>donanım sınıfı</i> ve <i>ilan güvenilirliği</i> soruluyor. Fiyatın ucuz olup olmadığını kod hesaplar: sınıfın medyanıyla kıyasla, bitti."},
+    state: `{
+  "ilan": {
+    "baslik": "Ryzen 7 5700X + RTX 4070 oyun bilgisayarı",
+    "aciklama": "1.5 yıllık, faturası var, hiç overclock yapılmadı, sigara içilmeyen ev. Garantisi Mart'ta bitti. Kutusu yok.",
+    "fiyat_tl": 38000
+  },
+  "benzer_ilanlar": [
+    {"donanim": "Ryzen 5 5600 + RTX 4060", "fiyat_tl": 27000},
+    {"donanim": "Ryzen 7 5700X + RTX 4070", "fiyat_tl": 41500},
+    {"donanim": "Ryzen 7 5800X + RTX 4070 Ti", "fiyat_tl": 52000},
+    {"donanim": "i5 12400F + RTX 4060 Ti", "fiyat_tl": 31000}
+  ],
+  "alici_profili": {
+    "kullanim": "1440p oyun ve video düzenleme",
+    "oncelikler": "Garantisi sürsün, faturalı olsun"
+  }
+}`,
+    sorular: [
+      {ad:"donanim_sinifi", tip:"choice",
+       instructions:"`ilan.baslik` içindeki donanım, `benzer_ilanlar` listesindeki hangi seviyeye denk düşüyor?",
+       secenekler:{"alt":"Listenin en zayıf makineleriyle aynı seviyede",
+                   "orta":"Listenin ortasındaki makinelerle aynı seviyede",
+                   "ust":"Listenin en güçlü makineleriyle aynı seviyede"}},
+      {ad:"ilan_seffaf", tip:"score",
+       instructions:"İlan metni, makinenin eksilerini de açıkça söylüyor mu?",
+       seviyeler:["Sadece olumlu yanlar yazılmış","Bir iki eksi geçiştirilerek anılmış",
+                  "Eksiler açıkça yazılmış","Eksiler ayrıntısıyla yazılmış"]},
+      {ad:"garanti_bitmis", tip:"noul",
+       instructions:"İlan metni, ürünün garantisinin bittiğini söylüyor.",
+       true:"Garantinin bittiği ya da kalmadığı yazılmış",
+       false:"Garanti sürüyor deniyor ya da konuya değinilmiyor"},
+      {ad:"profile_uygun", tip:"score",
+       instructions:"Bu makine `alici_profili` içinde tarif edilen kullanıma ne kadar uyuyor?",
+       seviyeler:["Açıkça yetersiz","Zar zor yeter","İyi uyuyor","Fazlasıyla yeter"]},
+    ],
+  },
+
+  "Destek talebi yönlendirme": {
+    state: `Merhaba, 3 gündür ödeme sayfasında "işlem başarısız" hatası alıyorum.
+Kartımı değiştirdim, yine olmadı. Müşterilerim sipariş veremiyor, ciddi kayıp yaşıyorum.
+Acilen bir çözüm lazım.`,
+    sorular: [
+      {ad:"ekip", tip:"choice", instructions:"Bu talebe hangi ekip bakmalı?",
+       secenekler:{"odeme":"Ödeme, fatura, abonelik sorunları",
+                   "teknik":"Hata, entegrasyon, API sorunları",
+                   "satis":"Fiyatlandırma ve hesap açma soruları"}},
+      {ad:"aciliyet", tip:"score", instructions:"Müşterinin aciliyet düzeyi.",
+       seviyeler:["Acelesi yok","Normal","Acil","İş durmuş, kritik"]},
+      {ad:"gelir_kaybi", tip:"noul", instructions:"Müşteri para veya iş kaybından söz ediyor."},
+    ],
+  },
+
+  "CV — ilan uyumu": {
+    state: `{
+  "ilan": {
+    "pozisyon": "Backend Developer",
+    "aranan": "3+ yıl Python, FastAPI veya Django, PostgreSQL, Docker. Kubernetes artı."
+  },
+  "aday": {
+    "ozet": "4 yıldır Python ile çalışıyorum. Son 2 yıl FastAPI ile mikroservis geliştirdim. PostgreSQL ve Redis kullanıyorum. Docker'ı günlük kullanıyorum, Kubernetes'e yeni başladım.",
+    "egitim": "Bilgisayar Mühendisliği"
+  }
+}`,
+    sorular: [
+      {ad:"teknik_uyum", tip:"score",
+       instructions:"Adayın teknik deneyimi `ilan.aranan` ile ne kadar örtüşüyor?",
+       seviyeler:["Aranan yığınla ilgisiz","Birkaç maddeyi karşılıyor",
+                  "Zorunlu maddelerin çoğunu karşılıyor","Zorunlu ve artı maddelerin hepsini karşılıyor"]},
+      {ad:"kubernetes_var", tip:"noul",
+       instructions:"Aday Kubernetes deneyimi olduğunu söylüyor.",
+       true:"Kubernetes kullandığını belirtiyor","false":"Hiç değinmiyor ya da bilmediğini söylüyor"},
+      {ad:"deneyim_yeterli", tip:"noul",
+       instructions:"Adayın Python deneyimi, ilanda istenen süreyi karşılıyor."},
+    ],
+  },
+
+  "Boş sayfa": {state:"", sorular:[{ad:"soru1", tip:"noul", instructions:""}]},
+};
+
+/* ---------- soru düzenleyici ---------- */
+function soruHTML(s, n){
+  const alt =
+    s.tip === "noul" ? `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px">
+        <div><label>“evet” ne demek <small>isteğe bağlı</small></label>
+          <input data-f="true" value="${esc(s.true ?? "")}"></div>
+        <div><label>“hayır” ne demek <small>isteğe bağlı</small></label>
+          <input data-f="false" value="${esc(s.false ?? "")}"></div>
+      </div>`
+  : s.tip === "score" ? `
+      <label>Seviyeler <small>her satıra bir seviye, en düşükten en yükseğe</small></label>
+      <textarea data-f="seviyeler" rows="4">${esc((s.seviyeler ?? []).join("\n"))}</textarea>`
+  : `
+      <label>Seçenekler <small>her satıra “anahtar: açıklama” — açıklama isteğe bağlı</small></label>
+      <textarea data-f="secenekler" rows="4">${esc(
+        Object.entries(s.secenekler ?? {}).map(([k,v]) => v ? `${k}: ${v}` : k).join("\n"))}</textarea>`;
+
+  return `<div class="soru" data-n="${n}">
+    <div class="ust">
+      <div><label>Ad</label><input data-f="ad" value="${esc(s.ad ?? "")}"></div>
+      <div><label>Tip</label><select data-f="tip">${
+        Object.entries(TIP).map(([k,v]) => `<option value="${k}" ${s.tip===k?"selected":""}>${v}</option>`).join("")}</select></div>
+      <button class="sil" data-sil title="Sil">×</button>
+    </div>
+    <label>Soru metni</label>
+    <textarea data-f="instructions" rows="2">${esc(s.instructions ?? "")}</textarea>
+    ${alt}
+  </div>`;
+}
+
+function ciz(){
+  $("sorular").innerHTML = sorular.map(soruHTML).join("");
+  uyariGuncelle();
+}
+
+function oku(){
+  return [...document.querySelectorAll("#sorular .soru")].map(k => {
+    const g = f => k.querySelector(`[data-f="${f}"]`);
+    const s = {ad: g("ad").value.trim(), tip: g("tip").value,
+               instructions: g("instructions").value.trim()};
+    if (s.tip === "noul"){
+      s.true = g("true")?.value.trim() || null;
+      s.false = g("false")?.value.trim() || null;
+    } else if (s.tip === "score"){
+      s.seviyeler = (g("seviyeler")?.value ?? "").split("\n").map(x=>x.trim()).filter(Boolean);
+    } else {
+      s.secenekler = Object.fromEntries((g("secenekler")?.value ?? "").split("\n")
+        .map(x=>x.trim()).filter(Boolean)
+        .map(x => { const i = x.indexOf(":"); return i < 0 ? [x, null] : [x.slice(0,i).trim(), x.slice(i+1).trim() || null]; }));
+    }
+    return s;
+  });
+}
+
+/* Soru kurulumunda sık yapılan hataları çalıştırmadan önce söyler. */
+function uyariGuncelle(){
+  const s = oku();
+  const uyari = [];
+  for (const q of s){
+    if (q.tip === "noul" && /\bmı\b|\bmi\b|\bmu\b|\bmü\b|\?\s*$/.test(q.instructions) && /(yoksa|ya da|veya)/i.test(q.instructions))
+      uyari.push(`<b>${esc(q.ad)}</b>: evet/hayır sorusu tek bir <i>önerme</i> olmalı, “A mı B mi” olmamalı.`);
+    if (q.tip === "score" && (q.seviyeler ?? []).some(x => x.length < 8))
+      uyari.push(`<b>${esc(q.ad)}</b>: seviyeler somut olsun — “iyi/kötü” göreli, “Bakımdan hiç söz edilmiyor” somut.`);
+    if (!q.instructions) uyari.push(`<b>${esc(q.ad || "?")}</b>: soru metni boş.`);
+  }
+  $("uyari").innerHTML = uyari.length ? "⚠ " + uyari.join("<br>⚠ ") : "";
+}
+
+$("sorular").addEventListener("input", uyariGuncelle);
+$("sorular").addEventListener("change", e => {
+  if (e.target.dataset.f === "tip"){ sorular = oku(); ciz(); }
+  else uyariGuncelle();
+});
+$("sorular").addEventListener("click", e => {
+  const b = e.target.closest("[data-sil]"); if (!b) return;
+  const n = Number(b.closest(".soru").dataset.n);
+  sorular = oku().filter((_,i) => i !== n); ciz();
+});
+$("ekle").onclick = () => { sorular = [...oku(), {ad:`soru${oku().length+1}`, tip:"noul", instructions:""}]; ciz(); };
+
+/* ---------- örnek yükleme ---------- */
+$("ornekler").innerHTML = Object.keys(ORNEKLER)
+  .map(k => `<button class="ghost" data-o="${esc(k)}">${esc(k)}</button>`).join("");
+$("ornekler").addEventListener("click", e => {
+  const b = e.target.closest("[data-o]"); if (!b) return;
+  const o = ORNEKLER[b.dataset.o];
+  $("state").value = o.state;
+  sorular = JSON.parse(JSON.stringify(o.sorular));
+  ciz();
+  $("sonuc").innerHTML = o.not
+    ? `<div class="not ${o.not.tur === "bad" ? "bad" : ""}">${o.not.metin}</div>
+       <div class="bos">“Jev'e sor” ile çalıştır.</div>`
+    : `<div class="bos">“Jev'e sor” ile çalıştır.</div>`;
+});
+
+/* ---------- çalıştır ---------- */
+$("calistir").onclick = async () => {
+  const btn = $("calistir"); btn.disabled = true;
+  const eskiNot = $("sonuc").querySelector(".not")?.outerHTML ?? "";
+  $("sonuc").innerHTML = eskiNot + `<div class="bos">Jev'e soruluyor…</div>`;
+
+  let state = $("state").value;
+  try { const j = JSON.parse(state); if (j && typeof j === "object") state = j; } catch {}
+
+  const r = await fetch("/api/oyun", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({state, sorular: oku()})});
+  const y = await r.json();
+  btn.disabled = false;
+
+  if (!r.ok){
+    $("sonuc").innerHTML = eskiNot + `<div class="not bad">${esc(y.detail ?? "Hata")}</div>`;
+    return;
+  }
+
+  const kutu = (ad, c) => {
+    if (c.tip === "noul"){
+      const p = Math.round(c.deger*100);
+      return `<div class="cev"><div class="bas"><span class="ad">${esc(ad)}</span>
+        <span class="tip">evet / hayır</span><span class="buyuk">${p}%</span></div>
+        <div class="bar"><i style="width:${p}%"></i><u style="left:50%"></u></div>
+        <div class="sat" style="grid-template-columns:1fr">
+          <span>0 = hayır · 50 = kararsız · 100 = evet</span></div></div>`;
+    }
+    if (c.tip === "choice"){
+      const sirali = Object.entries(c.olasiliklar).sort((a,b)=>b[1]-a[1]);
+      return `<div class="cev"><div class="bas"><span class="ad">${esc(ad)}</span>
+        <span class="tip">seçenekli</span><span class="buyuk">${esc(c.secim)}</span></div>
+        ${sirali.map(([k,v]) => `<div class="sat ${k===c.secim?"sec":""}">
+          <span>${esc(k)}</span><div class="minibar"><i style="width:${v*100}%"></i></div>
+          <b>${v.toFixed(2)}</b></div>`).join("")}
+        <div class="olcum"><span>güven ${c.guven.toFixed(2)}</span></div></div>`;
+    }
+    const enUst = Math.max(...Object.keys(c.seviye).map(Number));
+    return `<div class="cev"><div class="bas"><span class="ad">${esc(ad)}</span>
+      <span class="tip">dereceli 0–${enUst}</span><span class="buyuk">${c.skor.toFixed(2)}</span></div>
+      <div class="bar"><i style="width:${(c.skor/enUst)*100}%"></i></div>
+      ${Object.entries(c.seviye).map(([k,v]) => `<div class="sat ${Math.round(c.skor)==k?"sec":""}">
+        <span>${k} — ${esc(String(v)).slice(0,40)}</span>
+        <div class="minibar"><i style="width:${(c.olasiliklar[k]??0)*100}%"></i></div>
+        <b>${(c.olasiliklar[k]??0).toFixed(2)}</b></div>`).join("")}
+      <div class="olcum"><span>güven ${c.guven.toFixed(2)}</span></div></div>`;
+  };
+
+  const dusukGuven = Object.entries(y.cevaplar)
+    .filter(([,c]) => c.tip !== "noul" && c.guven < 0.6).map(([a]) => a);
+  const kararsiz = Object.entries(y.cevaplar)
+    .filter(([,c]) => c.tip === "noul" && c.deger > 0.35 && c.deger < 0.65).map(([a]) => a);
+
+  const uyarilar = [];
+  if (dusukGuven.length) uyarilar.push(`<b>Düşük güven:</b> ${dusukGuven.join(", ")} — model emin değil. Seviyeleri/seçenekleri netleştirmeyi dene.`);
+  if (kararsiz.length) uyarilar.push(`<b>Kararsız (0.35–0.65):</b> ${kararsiz.join(", ")} — soru muğlak olabilir ya da metinde cevap yok.`);
+
+  $("sonuc").innerHTML = eskiNot
+    + (uyarilar.length ? `<div class="not">${uyarilar.join("<br>")}</div>` : "")
+    + Object.entries(y.cevaplar).map(([a,c]) => kutu(a,c)).join("")
+    + `<div class="olcum"><span>${y.model}</span><span>${y.soru_sayisi} soru</span>
+       <span>${y.olcum.ms} ms</span><span>${y.olcum.input_tokens} token</span>
+       <span>$${y.olcum.usd.toFixed(7)}</span></div>`;
+
+  $("defter").textContent = `${y.toplam.cagri} çağrı · $${y.toplam.usd.toFixed(5)}`;
+};
+
+/* ---------- açılış ---------- */
+(async () => {
+  const a = await (await fetch("/api/ayarlar")).json();
+  $("durum").textContent = a.anahtar_var ? `anahtar ${a.maskeli}` : "anahtar yok — Ayarlar'dan ekle";
+  const k = await (await fetch("/api/kullanim")).json();
+  $("defter").textContent = `${k.cagri} çağrı · $${k.usd.toFixed(5)}`;
+  document.querySelector("[data-o]").click();
+})();
+</script>
+</body>
+</html>
