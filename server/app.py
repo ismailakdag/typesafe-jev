@@ -128,6 +128,8 @@ def summarize(doc: dict[str, Any]) -> dict[str, Any]:
         "aciklama": latest.get("aciklama"),
         "kapak": foto[0] if foto else None,
         "foto_sayisi": len(foto),
+        "kategori": latest.get("kategori") or "emlak",
+        "hasar": latest.get("hasar"),
         "karar": latest.get("karar"),
         "capture_count": len(doc["captures"]),
         "first_seen": doc.get("first_seen"),
@@ -255,6 +257,8 @@ class AnalyzeRequest(BaseModel):
     min_m2: float | None = None
     max_aidat: float | None = None
     sadece_bos: bool = False
+    max_km: float | None = None
+    min_yil: float | None = None
     merkez: list[float] | None = None
     yaricap_km: float | None = None
     poligon: list[list[float]] | None = None
@@ -299,7 +303,7 @@ async def analyze_stream(req: AnalyzeRequest) -> AsyncIterator[str]:
         yield line({"type": "hata", "mesaj": "TYPESAFE_API_KEY yok. .env dosyasına anahtarı ekleyip sunucuyu yeniden başlat."})
         return
 
-    sorular = analyzer.sorular()
+    ekler = ekler_yukle()
     semaphore = asyncio.Semaphore(max(1, req.eszamanlilik))
     jev_basla = time.perf_counter()
 
@@ -307,11 +311,14 @@ async def analyze_stream(req: AnalyzeRequest) -> AsyncIterator[str]:
         async def degerlendir(ilan: dict[str, Any]) -> dict[str, Any]:
             async with semaphore:
                 t0 = time.perf_counter()
+                kat = analyzer.kategori_coz(ilan.get("kategori"))
                 try:
-                    cevap = await client.system_one(analyzer.durum(ilan, kriterler), sorular)
+                    cevap = await client.system_one(
+                        analyzer.durum(ilan, kriterler), analyzer.sorular(kat, ekler)
+                    )
                 except Exception as error:  # ag, kota, dogrulama — ilani atlamak yerine bildir
                     return {"type": "karar_hata", "id": ilan["id"], "baslik": ilan["baslik"], "mesaj": str(error)}
-                karar = analyzer.karar_ver(cevap)
+                karar = analyzer.karar_ver(cevap, kat, ekler)
                 olcum = analyzer.olcum(t0, cevap.usage)
                 return {
                     "type": "karar",
@@ -328,6 +335,7 @@ async def analyze_stream(req: AnalyzeRequest) -> AsyncIterator[str]:
                     },
                     "asamalar": {"state_ms": 0.0, "model_ms": olcum["ms"], "karar_ms": 0.1},
                     "soru_sayisi": len(cevap.answers),
+                    "kategori": kat,
                     "olcum": olcum,
                     "model": cevap.model,
                     "detay": {
@@ -425,6 +433,86 @@ def set_profil(body: Profil) -> dict[str, str]:
 
 
 # --------------------------------------------------------------------------- #
+# Ek sorular: kullanicinin kendi tanimladiklari
+# --------------------------------------------------------------------------- #
+
+EK_SORULAR_PATH = DATA_DIR.parent / "ek_sorular.json"
+
+
+def ekler_yukle() -> list[dict[str, Any]]:
+    if EK_SORULAR_PATH.exists():
+        try:
+            veri = json.loads(EK_SORULAR_PATH.read_text(encoding="utf-8"))
+            return veri if isinstance(veri, list) else []
+        except json.JSONDecodeError:
+            pass
+    return []
+
+
+class EkSoru(BaseModel):
+    model_config = {"extra": "allow"}
+
+    ad: str
+    tip: str                      # noul | score | choice
+    instructions: str
+    kategori: str = "hepsi"       # emlak | vasita | hepsi
+    etiket: str | None = None
+    bayrak: bool = False          # noul: tek basina eleyen kirmizi bayrak olsun mu
+    agirlik: float = 0.0          # score: agirlikli skora katilsin mi
+
+
+def soru_ozeti(ad: str, q: Any) -> dict[str, Any]:
+    """Yerlesik bir soruyu arayuzde gosterilebilir bicime cevirir."""
+    d = q.model_dump()
+    return {"ad": ad, "tip": d.get("type"), "instructions": d.get("instructions"), "criteria": d.get("criteria")}
+
+
+@app.get("/api/sorular")
+def get_sorular(kategori: str = "emlak") -> dict[str, Any]:
+    kat = analyzer.kategori_coz(kategori)
+    uret, _, _ = analyzer.KATEGORILER[kat]
+    ekler = ekler_yukle()
+    return {
+        "kategori": kat,
+        "yerlesik": [soru_ozeti(ad, q) for ad, q in uret().items()],
+        "ekler": ekler,
+        "agirliklar": analyzer.agirliklar(kat, ekler),
+        "bayraklar": [ad for ad, _ in analyzer.bayraklar_tanimi(kat, ekler)],
+    }
+
+
+@app.post("/api/sorular")
+def set_sorular(ekler: list[EkSoru]) -> dict[str, Any]:
+    """Ek sorulari kaydeder. Gecersiz tanimlar reddedilir, kismi kayit yapilmaz."""
+    temiz = []
+    for e in ekler:
+        ad = e.ad.strip()
+        if not re.fullmatch(r"[a-z0-9_]{2,40}", ad):
+            raise HTTPException(status_code=400, detail=f"Geçersiz ad: {e.ad} (küçük harf, rakam ve _ kullan)")
+        d = e.model_dump()
+        try:
+            analyzer.ek_soruya_cevir(d)
+        except (ValueError, TypeError) as hata:
+            raise HTTPException(status_code=400, detail=f"{ad}: {hata}") from hata
+        temiz.append(d)
+
+    adlar = [e["ad"] for e in temiz]
+    if len(set(adlar)) != len(adlar):
+        raise HTTPException(status_code=400, detail="Aynı ad birden fazla kez kullanılmış")
+
+    EK_SORULAR_PATH.write_text(json.dumps(temiz, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {"kaydedildi": len(temiz)}
+
+
+@app.delete("/api/sorular")
+def reset_sorular() -> dict[str, Any]:
+    """Varsayilana doner: yalnizca ek sorular silinir, yerlesikler zaten degismiyor."""
+    if EK_SORULAR_PATH.exists():
+        EK_SORULAR_PATH.unlink()
+    return {"sifirlandi": True}
+
+
+# --------------------------------------------------------------------------- #
 # Kullanim defteri: her cagrinin token ve maliyeti kaydedilir
 # --------------------------------------------------------------------------- #
 
@@ -469,6 +557,8 @@ class HizliIstek(BaseModel):
     fields: dict[str, Any] = Field(default_factory=dict)
     konum_yolu: list[str] = Field(default_factory=list)
     fiyat_tl: float | None = None
+    kategori: str = "emlak"
+    hasar: dict[str, Any] | None = None
     kaydet: bool = False
 
 
@@ -488,7 +578,9 @@ async def degerlendir(body: HizliIstek) -> dict[str, Any]:
         profil=p["profil"], oncelikler=p["oncelikler"], kirmizi_cizgiler=p["kirmizi_cizgiler"]
     )
     ilan = body.model_dump()
-    sorular = analyzer.sorular()
+    kat = analyzer.kategori_coz(body.kategori)
+    ekler = ekler_yukle()
+    sorular = analyzer.sorular(kat, ekler)
 
     t_bas = time.perf_counter()
     state = analyzer.durum(ilan, kriterler)
@@ -498,7 +590,7 @@ async def degerlendir(body: HizliIstek) -> dict[str, Any]:
         cevap = await client.system_one(state, sorular)
     t_yanit = time.perf_counter()
 
-    karar = analyzer.karar_ver(cevap)
+    karar = analyzer.karar_ver(cevap, kat, ekler)
     t_karar = time.perf_counter()
 
     ms = lambda a, b: round((b - a) * 1000, 1)  # noqa: E731
@@ -523,6 +615,7 @@ async def degerlendir(body: HizliIstek) -> dict[str, Any]:
             "karar_ms": ms(t_yanit, t_karar),
         },
         "model": cevap.model,
+        "kategori": kat,
         "soru_sayisi": len(cevap.answers),
         "toplam": {"cagri": toplam["cagri"], "usd": toplam["usd"], "input_tokens": toplam["input_tokens"]},
         "detay": {

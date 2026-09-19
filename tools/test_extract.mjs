@@ -63,3 +63,24 @@ if (process.argv.includes("--post")) {
   });
   console.log("\narsive gonderildi:", await res.json());
 }
+
+// --degerlendir ile kaydi Jev'e gonderir ve karari yazdirir (arsive de kaydeder).
+if (process.argv.includes("--degerlendir")) {
+  const res = await fetch("http://127.0.0.1:8765/api/degerlendir", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...record, kaydet: true }),
+  });
+  const y = await res.json();
+  if (!res.ok) { console.log("\nHATA:", y); process.exit(1); }
+  console.log(`\n=== ${y.kategori.toUpperCase()} · ${y.sonuc.toUpperCase()} · %${Math.round(y.skor*100)} ===`);
+  console.log(`${y.soru_sayisi} soru · ${y.asamalar.model_ms} ms · ${y.olcum.input_tokens} token · $${y.olcum.usd.toFixed(7)}`);
+  if (y.bayraklar.length) console.log("BAYRAK:", y.bayraklar.join(", "));
+  console.log("gerekce:", y.gerekce.join(", "));
+  console.log("\n--- noul ---");
+  for (const [k, v] of Object.entries(y.detay.nouls)) console.log(`  ${k.padEnd(24)} ${v}`);
+  console.log("--- choice ---");
+  for (const [k, v] of Object.entries(y.detay.choices)) console.log(`  ${k.padEnd(24)} ${String(v.secim).padEnd(18)} guven ${v.guven}`);
+  console.log("--- score ---");
+  for (const [k, v] of Object.entries(y.detay.scores)) console.log(`  ${k.padEnd(24)} ${String(v.skor).padEnd(6)} guven ${v.guven}`);
+}

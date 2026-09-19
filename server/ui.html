@@ -193,6 +193,28 @@ dialog::backdrop{background:rgba(11,11,11,.42);backdrop-filter:blur(2px)}
 .save{border:0;border-radius:8px;padding:8px 15px;background:var(--ink);color:var(--surface);
   font:inherit;font-weight:620;cursor:pointer}
 .status{font-size:12.5px;margin-top:10px;min-height:18px}
+dialog#sorular{max-width:620px}
+.kat-sec{margin-left:auto;display:inline-flex;gap:6px}
+.dlg-h{display:flex;align-items:center;gap:10px}
+.ghost.kat{padding:3px 10px;font-size:12px}
+.ghost.kat.secili{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.yerlesik{max-height:190px;overflow:auto;margin-top:8px;border:1px solid var(--line);
+  border-radius:8px;padding:8px;background:var(--plane)}
+.yerlesik div{font-size:11.5px;color:var(--ink-2);padding:2px 0}
+.yerlesik b{color:var(--ink);font-weight:600}
+.yerlesik i{color:var(--muted);font-style:normal}
+.ek-bas{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  margin:18px 0 4px;font-weight:650}
+.ek{border:1px solid var(--line);border-radius:10px;padding:11px;margin-top:9px;background:var(--plane)}
+.ek .ust{display:grid;grid-template-columns:1fr 110px 96px 28px;gap:7px;align-items:end}
+.ek select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:7px;
+  font:inherit;font-size:12.5px;background:var(--raise);color:var(--ink)}
+.ek .sil{border:1px solid var(--line);background:var(--surface);color:var(--muted);
+  border-radius:7px;height:31px;cursor:pointer;font-size:15px;line-height:1}
+.ek .sil:hover{background:var(--critical);color:#fff;border-color:var(--critical)}
+.ek .alt{margin-top:8px}
+.ek .satir{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.ek small{color:var(--muted);font-size:10.5px}
 .status.ok{color:var(--good)}.status.err{color:var(--critical)}
 </style>
 </head>
@@ -204,6 +226,7 @@ dialog::backdrop{background:rgba(11,11,11,.42);backdrop-filter:blur(2px)}
   <span class="spacer"></span>
   <span class="count" id="model"></span>
   <span class="pill" id="keypill"><span class="dot"></span><span id="keytext">anahtar…</span></span>
+  <button class="ghost" id="open-sorular">Sorular</button>
   <button class="ghost" id="open-settings">Ayarlar</button>
 </header>
 
@@ -219,6 +242,10 @@ dialog::backdrop{background:rgba(11,11,11,.42);backdrop-filter:blur(2px)}
       <div><label>Max aidat</label><input id="max_aidat" type="number" value="4000"></div>
     </div>
     <div class="check"><input id="sadece_bos" type="checkbox"><span>Sadece boş (kiracısız)</span></div>
+    <div class="row2" style="margin-top:10px">
+      <div><label>Max km <small>(vasıta)</small></label><input id="max_km" type="number" placeholder="—"></div>
+      <div><label>Min model yılı</label><input id="min_yil" type="number" placeholder="—"></div>
+    </div>
 
     <h2 class="sec">Konum</h2>
     <label>Merkeze uzaklık (km)</label>
@@ -272,6 +299,31 @@ dialog::backdrop{background:rgba(11,11,11,.42);backdrop-filter:blur(2px)}
     <div class="grid" id="grid"></div>
   </main>
 </div>
+
+<dialog id="sorular">
+  <div class="dlg-h">Sorular
+    <span class="kat-sec">
+      <button class="ghost kat secili" data-kat="emlak">emlak</button>
+      <button class="ghost kat" data-kat="vasita">vasıta</button>
+    </span>
+  </div>
+  <div class="dlg-b">
+    <details id="yerlesik-det"><summary id="yerlesik-ozet">Yerleşik sorular</summary>
+      <div id="yerlesik-liste" class="yerlesik"></div>
+    </details>
+    <h4 class="ek-bas">Kendi sorularım</h4>
+    <div class="hint">Yerleşik sorular değişmez. Buraya eklediklerin onların üstüne binmez;
+      “Varsayılana dön” yalnızca bu listeyi temizler.</div>
+    <div id="ek-liste"></div>
+    <button class="ghost" id="ek-ekle" style="margin-top:10px">+ Soru ekle</button>
+    <div class="status" id="soru-status"></div>
+  </div>
+  <div class="dlg-f">
+    <button class="ghost" id="soru-reset">Varsayılana dön</button>
+    <button class="ghost" id="soru-kapat">Kapat</button>
+    <button class="save" id="soru-kaydet">Kaydet</button>
+  </div>
+</dialog>
 
 <dialog id="settings">
   <div class="dlg-h">Ayarlar</div>
@@ -488,6 +540,7 @@ $("run").addEventListener("click", async () => {
   const body = {
     min_fiyat:+$("min_fiyat").value || null, max_fiyat:+$("max_fiyat").value || null,
     min_m2:+$("min_m2").value || null, max_aidat:+$("max_aidat").value || null,
+    max_km:+$("max_km").value || null, min_yil:+$("min_yil").value || null,
     sadece_bos:$("sadece_bos").checked,
     merkez, yaricap_km: merkez ? (+$("yaricap").value || null) : null,
     profil:$("profil").value, oncelikler:$("oncelikler").value, kirmizi_cizgiler:$("kirmizi").value,
@@ -577,6 +630,140 @@ $("run").addEventListener("click", async () => {
   }
   btn.disabled = false;
 });
+
+
+/* ---------- sorular ---------- */
+let soruKat = "emlak";
+let ekSorular = [];
+
+const TIP_ADI = {noul:"evet / hayır", score:"dereceli", choice:"seçenekli"};
+
+function ekSatir(e, n){
+  const alt =
+    e.tip === "noul" ? `
+      <div class="satir">
+        <div><label>“evet” ne demek</label><input data-f="true" value="${esc(e.true ?? "")}"></div>
+        <div><label>“hayır” ne demek</label><input data-f="false" value="${esc(e.false ?? "")}"></div>
+      </div>
+      <div class="check"><input type="checkbox" data-f="bayrak" ${e.bayrak ? "checked" : ""}>
+        <span>Kırmızı bayrak — eşiği aşarsa tek başına elesin</span></div>`
+  : e.tip === "score" ? `
+      <label>Seviyeler <small>her satıra bir seviye, en düşükten en yükseğe</small></label>
+      <textarea data-f="seviyeler" rows="3">${esc((e.seviyeler ?? []).join("\n"))}</textarea>
+      <div class="satir" style="margin-top:6px">
+        <div><label>Ağırlık <small>0 = skora girmesin</small></label>
+          <input data-f="agirlik" type="number" step="0.05" min="0" max="1" value="${e.agirlik ?? 0}"></div>
+        <div></div>
+      </div>`
+  : `
+      <label>Seçenekler <small>her satıra “anahtar: açıklama”</small></label>
+      <textarea data-f="secenekler" rows="3">${esc(
+        Object.entries(e.secenekler ?? {}).map(([k,v]) => `${k}: ${v}`).join("\n"))}</textarea>`;
+
+  return `<div class="ek" data-n="${n}">
+    <div class="ust">
+      <div><label>Ad <small>küçük harf, _ ile</small></label><input data-f="ad" value="${esc(e.ad ?? "")}"></div>
+      <div><label>Tip</label><select data-f="tip">${
+        Object.entries(TIP_ADI).map(([k,v]) => `<option value="${k}" ${e.tip===k?"selected":""}>${v}</option>`).join("")}</select></div>
+      <div><label>Kategori</label><select data-f="kategori">${
+        ["hepsi","emlak","vasita"].map(k => `<option value="${k}" ${(e.kategori??"hepsi")===k?"selected":""}>${k}</option>`).join("")}</select></div>
+      <button class="sil" data-sil title="Sil">×</button>
+    </div>
+    <div class="alt">
+      <label>Soru metni</label>
+      <textarea data-f="instructions" rows="2">${esc(e.instructions ?? "")}</textarea>
+      ${alt}
+    </div>
+  </div>`;
+}
+
+function ekCiz(){
+  $("ek-liste").innerHTML = ekSorular.length
+    ? ekSorular.map(ekSatir).join("")
+    : `<div class="hint">Henüz kendi sorun yok. “+ Soru ekle” ile başla.</div>`;
+}
+
+function ekOku(){
+  return [...document.querySelectorAll("#ek-liste .ek")].map(kutu => {
+    const g = (f) => kutu.querySelector(`[data-f="${f}"]`);
+    const e = {
+      ad: g("ad").value.trim(), tip: g("tip").value,
+      kategori: g("kategori").value, instructions: g("instructions").value.trim(),
+    };
+    if (e.tip === "noul"){
+      e.true = g("true")?.value.trim() || null;
+      e.false = g("false")?.value.trim() || null;
+      e.bayrak = g("bayrak")?.checked ?? false;
+      e.etiket = e.ad.replace(/_/g," ");
+    } else if (e.tip === "score"){
+      e.seviyeler = (g("seviyeler")?.value ?? "").split("\n").map(x=>x.trim()).filter(Boolean);
+      e.agirlik = Number(g("agirlik")?.value || 0);
+    } else {
+      e.secenekler = Object.fromEntries((g("secenekler")?.value ?? "").split("\n")
+        .map(x => x.split(":")).filter(a => a.length >= 2)
+        .map(a => [a[0].trim(), a.slice(1).join(":").trim()]));
+    }
+    return e;
+  });
+}
+
+async function sorulariYukle(){
+  const d = await (await fetch(`/api/sorular?kategori=${soruKat}`)).json();
+  ekSorular = d.ekler;
+  $("yerlesik-ozet").textContent = `Yerleşik sorular (${d.yerlesik.length}) — değiştirilemez`;
+  $("yerlesik-liste").innerHTML = d.yerlesik.map(q =>
+    `<div><b>${esc(q.ad)}</b> <i>${TIP_ADI[q.tip] ?? q.tip}</i><br>${esc(q.instructions ?? "")}</div>`).join("");
+  ekCiz();
+  soruDurum("");
+}
+
+const soruDurum = (m, c="") => { $("soru-status").className = "status " + c; $("soru-status").textContent = m; };
+
+$("open-sorular").onclick = async () => { await sorulariYukle(); $("sorular").showModal(); };
+$("soru-kapat").onclick = () => $("sorular").close();
+
+document.querySelectorAll(".ghost.kat").forEach(b => b.onclick = async () => {
+  document.querySelectorAll(".ghost.kat").forEach(x => x.classList.toggle("secili", x === b));
+  soruKat = b.dataset.kat;
+  await sorulariYukle();
+});
+
+$("ek-ekle").onclick = () => {
+  ekSorular = [...ekOku(), {ad:"", tip:"noul", kategori:"hepsi", instructions:"", bayrak:false}];
+  ekCiz();
+};
+
+$("ek-liste").addEventListener("click", (e) => {
+  const sil = e.target.closest("[data-sil]");
+  if (!sil) return;
+  const n = Number(sil.closest(".ek").dataset.n);
+  ekSorular = ekOku().filter((_, i) => i !== n);
+  ekCiz();
+});
+
+$("ek-liste").addEventListener("change", (e) => {
+  if (e.target.dataset.f !== "tip") return;  // tip degisince alanlar yenilensin
+  ekSorular = ekOku();
+  ekCiz();
+});
+
+$("soru-kaydet").onclick = async () => {
+  const gonder = ekOku();
+  soruDurum("Kaydediliyor…");
+  const r = await fetch("/api/sorular", {method:"POST",
+    headers:{"Content-Type":"application/json"}, body: JSON.stringify(gonder)});
+  const y = await r.json();
+  if (!r.ok) return soruDurum(y.detail ?? "Kaydedilemedi", "err");
+  ekSorular = gonder;
+  soruDurum(`${y.kaydedildi} ek soru kaydedildi. Sonraki değerlendirmelerde kullanılacak.`, "ok");
+};
+
+$("soru-reset").onclick = async () => {
+  if (!confirm("Kendi eklediğin sorular silinecek, yerleşik sorular olduğu gibi kalacak. Devam?")) return;
+  await fetch("/api/sorular", {method:"DELETE"});
+  await sorulariYukle();
+  soruDurum("Varsayılana dönüldü.", "ok");
+};
 
 ayarDurumu();
 profilYukle();

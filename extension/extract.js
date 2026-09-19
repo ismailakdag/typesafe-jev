@@ -27,9 +27,12 @@
   };
 
   // "7.200.000 TL" -> 7200000 ; "120" -> 120 ; "6-10 arasi" -> 6 (ilk sayi)
+  // Binlik ayracli bicim once denenir ama en az bir '.ddd' grubu ZORUNLU:
+  // aksi halde '2015' gibi noktasiz dort haneli sayida ilk dal '201' ile
+  // eslesip duruyordu; yil ve kilometre sessizce bozuluyordu.
   function trNumber(s) {
     if (!s) return null;
-    const m = String(s).replace(/ /g, " ").match(/-?\d{1,3}(?:\.\d{3})*(?:,\d+)?|-?\d+(?:,\d+)?/);
+    const m = String(s).replace(/ /g, " ").match(/-?\d{1,3}(?:\.\d{3})+(?:,\d+)?|-?\d+(?:,\d+)?/);
     if (!m) return null;
     const n = Number(m[0].replace(/\./g, "").replace(",", "."));
     return Number.isFinite(n) ? n : null;
@@ -217,6 +220,46 @@
     return best ? cleanLines(best.innerText) : null;
   }
 
+  // --- vasita: boyali/degisen semasi ---------------------------------------
+  // sahibinden otomotiv ilanlarinda govde semasi her parca icin bir div tasir;
+  // parcanin durumu sinif adinda kodlu. Metinden cikarmaya calismak yerine
+  // dogrudan okunur: "hasar kaydi yok" diyen bir ilanda sekiz boyali panel
+  // olabilir ve bu celiski ancak yapilandirilmis veriyle gorulur.
+  const PARCA = {
+    "front-bumper": "Ön tampon", "front-hood": "Kaput", "roof": "Tavan",
+    "front-right-mudguard": "Sağ ön çamurluk", "front-right-door": "Sağ ön kapı",
+    "rear-right-door": "Sağ arka kapı", "rear-right-mudguard": "Sağ arka çamurluk",
+    "front-left-mudguard": "Sol ön çamurluk", "front-left-door": "Sol ön kapı",
+    "rear-left-door": "Sol arka kapı", "rear-left-mudguard": "Sol arka çamurluk",
+    "rear-hood": "Bagaj kapağı", "rear-bumper": "Arka tampon",
+  };
+  const DURUM = {
+    "original-new": "orijinal", "local-painted-new": "lokal_boyali",
+    "painted-new": "boyali", "changed-new": "degisen",
+  };
+
+  function boyaliDegisen() {
+    const kap = document.querySelector(".car-parts");
+    if (!kap) return null;
+    const sonuc = { orijinal: [], lokal_boyali: [], boyali: [], degisen: [] };
+    let bulundu = 0;
+    for (const el of kap.children) {
+      const siniflar = Array.from(el.classList);
+      const parca = siniflar.find((c) => c in PARCA);
+      const durum = siniflar.find((c) => c in DURUM);
+      if (!parca || !durum) continue;
+      sonuc[DURUM[durum]].push(PARCA[parca]);
+      bulundu++;
+    }
+    if (!bulundu) return null;
+    const sayi = (k) => sonuc[k].length;
+    sonuc.ozet =
+      `${bulundu} panel: ${sayi("orijinal")} orijinal, ${sayi("lokal_boyali")} lokal boyalı, ` +
+      `${sayi("boyali")} boyalı, ${sayi("degisen")} değişen`;
+    sonuc.orijinal_disi = bulundu - sayi("orijinal");
+    return sonuc;
+  }
+
   function selectedFeatures() {
     const picked = Array.from(document.querySelectorAll("li.selected, li[class*='selected'], span.selected"))
       .map(txt)
@@ -259,6 +302,14 @@
     "Takas": ["takas", "text"],
     "Enerji Kimlik Belgesi": ["enerji_belgesi", "text"],
     // otomotiv tarafi
+    "KM": ["km", "num"],
+    "Yakıt / Motor Tipi": ["yakit", "text"],
+    "Araç Durumu": ["arac_durumu", "text"],
+    "Kasa Tipi": ["kasa_tipi", "text"],
+    "Motor Hacmi": ["motor_hacmi", "num"],
+    "Çekiş": ["cekis", "text"],
+    "Servis Garantisi": ["servis_garantisi", "text"],
+    "Plaka / Uyruk": ["plaka_uyruk", "text"],
     "Yıl": ["yil", "num"],
     "Kilometre": ["km", "num"],
     "Vites": ["vites", "text"],
@@ -296,6 +347,18 @@
     return best;
   }
 
+  // Hangi soru setinin kullanilacagini belirler. Once yol, sonra breadcrumb.
+  function kategori() {
+    const yol = location.pathname;
+    if (/\/vasita-|\/otomobil-/.test(yol)) return "vasita";
+    if (/\/emlak-|\/konut-/.test(yol)) return "emlak";
+    const bc = breadcrumb().map((s) => s.toLowerCase());
+    if (bc.some((s) => s.startsWith("vasıta") || s.startsWith("vasita"))) return "vasita";
+    if (bc.some((s) => s.startsWith("emlak"))) return "emlak";
+    if (document.querySelector(".car-parts")) return "vasita";
+    return "diger";
+  }
+
   function extract() {
     const pairs = labelValuePairs();
     const sahibinden = isSahibindenListing();
@@ -311,6 +374,8 @@
       coords: coordinates(),
       fields: normalizeFields(pairs),
       raw_pairs: pairs,
+      kategori: kategori(),
+      hasar: boyaliDegisen(),
       ozellikler: selectedFeatures(),
       aciklama: description(),
       foto: images(),
@@ -325,6 +390,8 @@
       coords_source: record.coords ? record.coords.source : null,
       photo_count: record.foto.length,
       feature_count: record.ozellikler.length,
+      kategori: record.kategori,
+      hasar_semasi: record.hasar ? record.hasar.ozet : null,
       missing: ["fiyat_tl", "baslik", "coords", "aciklama"].filter((k) => !record[k]),
     };
     return record;

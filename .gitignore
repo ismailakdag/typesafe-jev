@@ -5,3 +5,7 @@ __pycache__/
 node_modules/
 out/
 data/ilanlar/
+
+*.zip
+
+data/ornek/
