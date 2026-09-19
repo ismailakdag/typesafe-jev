@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kapıdaki Muhafız</title>
+<title>Zindan — üç kapı</title>
 <style>
 :root{
   color-scheme: light;
@@ -27,7 +27,7 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--plane);color:var(--ink);
   font:14px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
-header{display:flex;align-items:center;gap:14px;padding:0 20px;height:54px;
+header{display:flex;align-items:center;gap:12px;padding:0 20px;height:54px;
   background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:9}
 header h1{font-size:15px;font-weight:650;margin:0}
 .muted{font-size:12.5px;color:var(--muted)}
@@ -35,6 +35,13 @@ header h1{font-size:15px;font-weight:650;margin:0}
 a.ghost,button.ghost{border:1px solid var(--ring);background:var(--surface);color:var(--ink);
   border-radius:8px;padding:6px 11px;font:inherit;font-size:12.5px;cursor:pointer;text-decoration:none}
 a.ghost:hover,button.ghost:hover{background:var(--plane)}
+
+.yol{display:flex;gap:6px;align-items:center}
+.adim{display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted);
+  padding:3px 9px;border-radius:999px;border:1px solid var(--line)}
+.adim.simdi{border-color:var(--ink);color:var(--ink);font-weight:650}
+.adim.gecildi{border-color:color-mix(in srgb,var(--good) 50%,transparent);
+  background:color-mix(in srgb,var(--good) 12%,transparent);color:var(--ink-2)}
 
 .wrap{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:16px;padding:16px;
   align-items:start}
@@ -49,7 +56,7 @@ a.ghost:hover,button.ghost:hover{background:var(--plane)}
   padding:14px 16px;border-radius:11px;background:var(--plane);border:1px solid var(--line)}
 .sahne b{color:var(--ink)}
 
-.kayit{margin-top:14px;display:flex;flex-direction:column;gap:9px;max-height:330px;overflow:auto}
+.kayit{margin-top:14px;display:flex;flex-direction:column;gap:9px;max-height:360px;overflow:auto}
 .repl{padding:9px 13px;border-radius:11px;max-width:88%;font-size:13.5px;line-height:1.55}
 .repl.sen{align-self:flex-end;background:var(--seq-soft);color:#104281;
   border:1px solid color-mix(in srgb,var(--seq) 30%,transparent)}
@@ -59,6 +66,9 @@ a.ghost:hover,button.ghost:hover{background:var(--plane)}
   opacity:.65;margin-bottom:2px}
 .repl.olay{align-self:center;max-width:100%;background:transparent;border:0;
   color:var(--muted);font-size:12px;font-style:italic;text-align:center}
+.repl.yakalandi{align-self:center;max-width:100%;font-size:12.5px;text-align:center;
+  background:color-mix(in srgb,var(--critical) 12%,transparent);
+  border:1px solid color-mix(in srgb,var(--critical) 40%,transparent);color:var(--ink)}
 
 .giris{display:flex;gap:8px;margin-top:14px}
 .giris input{flex:1;padding:11px 13px;border:1px solid var(--line);border-radius:10px;
@@ -68,17 +78,24 @@ a.ghost:hover,button.ghost:hover{background:var(--plane)}
   color:var(--surface);font:inherit;font-weight:650;cursor:pointer}
 .giris button:disabled{opacity:.45;cursor:default}
 
-.olcer{margin-bottom:13px}
-.olcer .bas{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-2);
-  margin-bottom:4px}
+.olcer{margin-bottom:12px}
+.olcer .bas{display:flex;justify-content:space-between;font-size:11.5px;color:var(--ink-2);margin-bottom:4px}
 .olcer .bas b{font-variant-numeric:tabular-nums}
 .cub{height:9px;background:var(--plane);border:1px solid var(--line);border-radius:5px;overflow:hidden}
 .cub i{display:block;height:100%;transition:width .5s cubic-bezier(.3,.9,.3,1)}
 .cub i.supheli{background:var(--critical)}
 .cub i.moral{background:var(--good)}
-.durumlar{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px;font-size:11.5px}
+.durumlar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;font-size:11.5px}
 .rozet{padding:3px 9px;border-radius:999px;background:var(--plane);border:1px solid var(--line);
   color:var(--ink-2)}
+.rozet.tehlike{border-color:color-mix(in srgb,var(--critical) 45%,transparent);
+  background:color-mix(in srgb,var(--critical) 11%,transparent)}
+
+.iddia{margin-top:10px}
+.iddia div{font-size:11.5px;color:var(--ink-2);padding:4px 9px;border-radius:7px;
+  background:var(--plane);border:1px solid var(--line);margin-top:4px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.iddia div small{color:var(--muted)}
 
 .grup{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
   font-weight:650;margin:13px 0 4px}
@@ -95,15 +112,15 @@ a.ghost:hover,button.ghost:hover{background:var(--plane)}
 
 .kural{margin-top:12px;padding:10px 12px;border-radius:9px;background:var(--plane);
   border:1px solid var(--line);font:11.5px/1.6 ui-monospace,Menlo,Consolas,monospace;color:var(--ink-2)}
-.kural b{color:var(--ink)}
 .olcum{display:flex;gap:12px;flex-wrap:wrap;margin-top:11px;padding-top:9px;
   border-top:1px solid var(--line);font:11px ui-monospace,Menlo,Consolas,monospace;color:var(--muted)}
-.son{padding:15px;border-radius:12px;margin-top:14px;font-size:14.5px;line-height:1.6;text-align:center}
+.son{padding:15px;border-radius:12px;margin-top:14px;font-size:14px;line-height:1.65}
 .son.kazandin{background:color-mix(in srgb,var(--good) 13%,var(--surface));
   border:1px solid color-mix(in srgb,var(--good) 45%,transparent)}
 .son.kaybettin{background:color-mix(in srgb,var(--critical) 11%,var(--surface));
   border:1px solid color-mix(in srgb,var(--critical) 42%,transparent)}
-.son b{font-size:16px;display:block;margin-bottom:5px}
+.son b{font-size:16px;display:block;margin-bottom:6px}
+.son ul{margin:8px 0 0;padding-left:18px}
 .bos{color:var(--muted);font-size:12.5px;text-align:center;padding:22px 14px;
   border:1.5px dashed var(--line);border-radius:11px}
 </style>
@@ -111,8 +128,8 @@ a.ghost:hover,button.ghost:hover{background:var(--plane)}
 <body>
 
 <header>
-  <h1>Kapıdaki Muhafız</h1>
-  <span class="muted">ne istersen yaz · kararı kod verir, yargıyı Jev</span>
+  <h1>Zindan</h1>
+  <div class="yol" id="yol"></div>
   <span class="spacer"></span>
   <button class="ghost" id="yeniden">Baştan</button>
   <a class="ghost" href="/oyun">Oyun alanı</a>
@@ -121,13 +138,8 @@ a.ghost:hover,button.ghost:hover{background:var(--plane)}
 
 <div class="wrap">
   <section class="panel">
-    <h2 class="sec">Sahne</h2>
-    <div class="sahne">
-      Zindanın demir kapısı önündesin. <b>Muhafız</b> taburede oturmuş, gözleri yarı kapalı —
-      gece vardiyası uzun sürmüş. Yanında boş bir tas duruyor.
-      Üzerinde <b>paslı bir anahtar</b> ve <b>3 altın</b> var. Mühür yok, belge yok.
-      <br><br>Kapıdan geçmen lazım. <b>Üç hamlen var.</b>
-    </div>
+    <h2 class="sec" id="sahne-adi">Sahne</h2>
+    <div class="sahne" id="sahne"></div>
     <div class="kayit" id="kayit"></div>
     <div class="giris">
       <input id="soz" placeholder="Ne söylüyorsun?" autocomplete="off">
@@ -136,266 +148,378 @@ a.ghost:hover,button.ghost:hover{background:var(--plane)}
   </section>
 
   <aside class="panel">
-    <h2 class="sec">Muhafızın durumu</h2>
+    <h2 class="sec" id="npc-adi">Karşındaki</h2>
     <div class="olcer">
-      <div class="bas"><span>şüphe</span><b id="s-supheli">0.10</b></div>
-      <div class="cub"><i class="supheli" id="c-supheli" style="width:10%"></i></div>
+      <div class="bas"><span>şüphe</span><b id="s-supheli">—</b></div>
+      <div class="cub"><i class="supheli" id="c-supheli" style="width:0"></i></div>
     </div>
     <div class="olcer">
-      <div class="bas"><span>sana karşı tutum</span><b id="s-moral">0.30</b></div>
-      <div class="cub"><i class="moral" id="c-moral" style="width:30%"></i></div>
+      <div class="bas"><span>sana karşı tutum</span><b id="s-moral">—</b></div>
+      <div class="cub"><i class="moral" id="c-moral" style="width:0"></i></div>
     </div>
     <div class="durumlar" id="durumlar"></div>
+    <div class="iddia" id="iddialar"></div>
 
     <h2 class="sec">Jev ne gördü</h2>
-    <div id="yargi"><div class="bos">Bir şey söyle.<br>Söylediğin 14 açıdan değerlendirilecek.</div></div>
+    <div id="yargi"><div class="bos">Bir şey söyle.</div></div>
   </aside>
 </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-
-/* Sayfa dosyadan acilirsa fetch("/api/...") file:///api/... olur ve
-   "Failed to fetch" der. Sebebi acikca soyle. */
-(() => {
-  if (location.protocol !== "file:") return;
-  document.body.innerHTML = `
-    <div style="max-width:560px;margin:70px auto;padding:22px 26px;border-radius:14px;
-      border:1px solid #e1e0d9;background:#fff;color:#0b0b0b;
-      font:14px/1.65 system-ui,-apple-system,'Segoe UI',sans-serif">
-      <h2 style="margin:0 0 10px;font-size:17px">Bu sayfa dosyadan açıldı</h2>
-      <p>Sayfa görünüyor ama sunucuya hiçbir istek gidemez — tarayıcı
-        <code>file://</code> adresinden <code>/api/oyun</code> uçlarına ulaşamıyor.
-        “Failed to fetch” hatasının sebebi bu.</p>
-      <p style="margin-bottom:6px"><b>Doğrusu:</b> önce sunucuyu başlat</p>
-      <pre style="background:#f9f9f7;border:1px solid #e1e0d9;border-radius:8px;
-        padding:10px 12px;font:12.5px ui-monospace,Menlo,Consolas,monospace;margin:0 0 12px">basla.cmd</pre>
-      <p style="margin-bottom:6px">sonra tarayıcıda şu adresi aç:</p>
-      <p><a id="dogru-adres" href="#" style="font:13px ui-monospace,Menlo,Consolas,monospace"></a></p>
-    </div>`;
-  const yol = location.pathname.split("/").pop().replace(".html", "");
-  const ad = {macera:"macera", yazarken:"yazarken", oyun:"oyun"}[yol] ?? "";
-  const url = "http://127.0.0.1:8765/" + ad;
-  const a = document.getElementById("dogru-adres");
-  a.href = url; a.textContent = url;
-})();
-
-/** fetch hatalarini anlasilir hale getirir. */
-function agHatasi(e){
-  if (e instanceof TypeError)
-    return "Sunucuya ulaşılamadı. basla.cmd çalışıyor mu? (http://127.0.0.1:8765)";
-  return e.message;
-}
-
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-/* ---------------------------------------------------------------------------
-   Oyunun KURALLARI kodda. Jev yalnizca "oyuncu ne yapti" sorusunu cevapliyor.
-   Sayisal hicbir sey modele sorulmuyor: altin yeterli mi, kac hamle kaldi,
-   supheler esigi asti mi — hepsi asagida, kodda.
---------------------------------------------------------------------------- */
-const BASLANGIC = () => ({
-  supheli: 0.10, moral: 0.30, hamle: 0, altin: 3,
-  rusvetIstenen: 5,          // muhafizin gozu bu kadarini goruyor
-  gecti: false, alarm: false,
-  gecmis: [],                // {kim, soz}
-  duyulanIddialar: [],
-});
-let O = BASLANGIC();
+/* Sayfa dosyadan acilirsa fetch("/api/...") file:///api/... olur. */
+(() => {
+  if (location.protocol !== "file:") return;
+  document.body.innerHTML = `<div style="max-width:560px;margin:70px auto;padding:22px 26px;
+    border-radius:14px;border:1px solid #e1e0d9;background:#fff;color:#0b0b0b;
+    font:14px/1.65 system-ui,-apple-system,'Segoe UI',sans-serif">
+    <h2 style="margin:0 0 10px;font-size:17px">Bu sayfa dosyadan açıldı</h2>
+    <p>Sunucuya istek gidemez. Önce <code>basla.cmd</code>, sonra:</p>
+    <p><a href="http://127.0.0.1:8765/macera">http://127.0.0.1:8765/macera</a></p></div>`;
+})();
 
-const YARGILAR = [
-  // [ad, etiket, yonerge, iyiMi]  — iyiMi: true ise yanmasi oyuncunun lehine
+const agHatasi = (e) => e instanceof TypeError
+  ? "Sunucuya ulaşılamadı. basla.cmd çalışıyor mu? (http://127.0.0.1:8765)" : e.message;
+
+/* ===========================================================================
+   SAHNELER. Her birinin kendi NPC'si, kendi gizli yolu, kendi kazanma kosulu.
+   Oyuncunun TUM konusmasi sahneler arasi tasiniyor: bir kapida soyledigin yalan
+   obur kapida yakalanabiliyor. Bu mekanik kural motoruyla yazilamaz — "daha
+   once soylediginle celisiyor mu" sorusunun cevabi metnin anlaminda.
+=========================================================================== */
+const SAHNELER = [
+  {
+    ad: "Kapı", npc: "Muhafız",
+    sahne: `Zindanın demir kapısı önündesin. <b>Muhafız</b> taburede oturmuş, gözleri yarı kapalı —
+      gece vardiyası uzun sürmüş. Yanında <b>boş bir tas</b> duruyor.<br><br>
+      İçeride, 7. hücrede hasta bir yakının var. Girmen lazım.`,
+    npcDurum: {uykulu: true, ac: true, rutbe: "nöbetçi"},
+    gizli: {ad: "gizli_yol", etiket: "Muhafızın hâline değindi",
+      yonerge: "Oyuncu muhafızın kendi durumuna değiniyor: yorgunluğu, açlığı, uzun vardiyası ya da rahatı.",
+      etki: {moral: +0.25, supheli: -0.10}},
+    rusvetIstenen: 5,
+    girisRepl: "Muhafız seni fark eder ama kıpırdamaz.",
+    gecis: "Muhafız kenara çekilir. Demir kapı gıcırdayarak açılır.",
+    replikler: {
+      gecti: "Muhafız bir süre sessiz kalır, sonra kenara çekilir. “Çabuk ol.”",
+      rusvet: "Muhafız avucunu açar, altınları sayar, başıyla kapıyı işaret eder.",
+      rusvetAz: "Muhafız altınlara bakar, burun kıvırır. “Bu kadarına vardiyamı satmam.”",
+      gizli: "Muhafızın omuzları gevşer. “…uzun gece, evet. Neyse, anlat bakalım.”",
+      yalan: "Muhafız gözlerini kısar. “Öyle mi? Göster bakalım.”",
+      tehdit: "Muhafızın eli kabzaya gider. “Bir daha söyle bakayım.”",
+      notr: "Muhafız tabureye yaslanır. “Devam et.”",
+    },
+  },
+  {
+    ad: "Kayıt", npc: "Zindancı",
+    sahne: `Taş koridor. Duvarda bir kandil. <b>Zindancı</b> önünde açık bir <b>defter</b>,
+      kalemi elinde. Canı sıkılmış, konuşacak birini arıyor gibi.<br><br>
+      “Seni kim aldı içeri? Deftere yazmam lazım. Kimi görmeye geldin?”`,
+    npcDurum: {sikilmis: true, defter_tutuyor: true, muhafizi_taniyor: true,
+               kaptandan_hoslanmiyor: true},
+    gizli: {ad: "gizli_yol", etiket: "Zindancının canını sıktığını anladı",
+      yonerge: "Oyuncu zindancının can sıkıntısına, yalnızlığına ya da işinin tekdüzeliğine değiniyor; ya da onunla sohbet etmeye çalışıyor.",
+      etki: {moral: +0.22, supheli: -0.08}},
+    rusvetIstenen: 3,
+    girisRepl: "Zindancı kalemi deftere dayar, bekler.",
+    gecis: "Zindancı bir şeyler karalar, sonra koridoru işaret eder. “Yedinci hücre. Dipte.”",
+    replikler: {
+      gecti: "Zindancı defterine bir şey yazar. “Tamam. Dipte, yedinci.”",
+      rusvet: "Zindancı parayı defterin altına sürer. “Bugün kimse gelmedi zaten.”",
+      rusvetAz: "Zindancı avucundakine bakar. “Bu neyin parası, bir bardak şarabın mı?”",
+      gizli: "Zindancı kalemi bırakır. “Vallahi doğru. Kimse uğramıyor buraya.”",
+      yalan: "Zindancı defteri karıştırır. “Bir dakika. Öyle bir kayıt yok burada.”",
+      tehdit: "Zindancı geri çekilir, eli çıngırağa gider. “Sakin ol bakalım.”",
+      notr: "Zindancı kalemini çevirir. “Eee?”",
+    },
+  },
+  {
+    ad: "Hücre", npc: "Gardiyan",
+    sahne: `Koridorun dibi. 7. hücrenin önünde <b>Gardiyan</b> duruyor, kemerinde
+      <b>anahtar demeti</b> var. Senin paslı anahtarın bu kilide uymuyor.<br><br>
+      “Ziyaret saati bitti. Sabah gel.”`,
+    npcDurum: {kurallara_bagli: true, vardiya_bitiyor: true, anahtar_onda: true},
+    gizli: {ad: "gizli_yol", etiket: "Kurala uygun bir gerekçe sundu",
+      yonerge: "Oyuncu, kuralın kendisine dayanan bir gerekçe sunuyor: istisna, izin, hekim gerekçesi, resmî bir prosedür ya da 'kurallar buna izin veriyor' türünden bir argüman.",
+      etki: {moral: +0.20, supheli: -0.12}},
+    rusvetIstenen: 99,   // rusvet almaz
+    girisRepl: "Gardiyan kollarını kavuşturur.",
+    gecis: "Gardiyan anahtarı çevirir. Kapı açılır.",
+    replikler: {
+      gecti: "Gardiyan bir an duraksar, sonra anahtarı çıkarır. “Beş dakika.”",
+      rusvet: "",
+      rusvetAz: "Gardiyan avucunu iter. “Cebine koy onu. Ben öyle biri değilim.”",
+      gizli: "Gardiyan düşünür. “…hekim gerekçesi ayrı tutulur, doğru.”",
+      yalan: "Gardiyan kaşını kaldırır. “Bunu kim söyledi sana?”",
+      tehdit: "Gardiyan bir adım öne çıkar. “Dene bakalım.”",
+      notr: "Gardiyan başını sallar. “Kural kural.”",
+    },
+  },
+];
+
+/* --- sorular: 12 ortak + sahnenin gizli yolu + niyet + iki puan ---------- */
+const ORTAK = [
   ["yalan", "Yalan söylüyor", "Oyuncunun söyledikleri `oyuncu_envanteri` ile çelişiyor ya da sahip olmadığı bir yetkiyi öne sürüyor.", false],
-  ["tehdit", "Tehdit ediyor", "Oyuncu muhafızı tehdit ediyor, korkutuyor ya da şiddet ima ediyor.", false],
+  ["celiski_gecmis", "Daha önce söylediğiyle çelişiyor", "Oyuncunun bu son sözü, `bu_kosuda_soyledikleri` listesindeki daha önceki sözlerinden biriyle çelişiyor.", false],
+  ["tehdit", "Tehdit ediyor", "Oyuncu karşısındakini tehdit ediyor, korkutuyor ya da şiddet ima ediyor.", false],
   ["rusvet", "Rüşvet teklif ediyor", "Oyuncu para, altın ya da maddi bir karşılık teklif ediyor.", null],
-  ["kacis", "Zorla geçmeye çalışıyor", "Oyuncu konuşmak yerine kapıdan zorla ya da gizlice geçmeye çalışıyor.", false],
-  ["tekrar", "Kendini tekrar ediyor", "Oyuncu, `konusma_gecmisi` içinde zaten söylediği bir şeyi yeniden söylüyor.", false],
+  ["kacis", "Zorla geçmeye çalışıyor", "Oyuncu konuşmak yerine zorla ya da gizlice geçmeye çalışıyor.", false],
+  ["tekrar", "Kendini tekrar ediyor", "Oyuncu, `bu_sahnedeki_konusma` içinde zaten söylediği bir şeyi yeniden söylüyor.", false],
   ["kibar", "Kibar konuşuyor", "Oyuncu saygılı ve kibar bir dil kullanıyor.", true],
-  ["kisisel", "Muhafızın hâline değindi", "Oyuncu muhafızın kendi durumuna değiniyor: yorgunluğu, açlığı, uzun vardiyası ya da rahatı.", true],
-  ["yeni_bilgi", "Yeni bir şey söyledi", "Oyuncu, `konusma_gecmisi` içinde geçmeyen yeni bir bilgi ya da gerekçe sunuyor.", true],
+  ["yeni_bilgi", "Yeni bir şey söyledi", "Oyuncu, daha önce geçmeyen yeni bir bilgi ya da gerekçe sunuyor.", true],
   ["somut", "Somut gerekçe verdi", "Oyuncunun sunduğu gerekçe belirsiz değil, doğrulanabilir bir ayrıntı içeriyor.", true],
+  ["durust_itiraf", "Dürüstçe itiraf etti", "Oyuncu daha önce yanlış ya da yalan söylediğini kendiliğinden kabul ediyor.", true],
   ["anlamsiz", "Anlamsız", "Oyuncunun söyledikleri sahneyle ilgisiz ya da anlamsız.", false],
 ];
-const SECIMLER = ["ikna", "rusvet", "tehdit", "kacis", "sohbet", "anlamsiz"];
 const PUANLAR = [
   ["ikna_edicilik", "İkna ediciliği", ["Hiç ikna edici değil", "Zayıf", "İdare eder", "İkna edici", "Çok ikna edici"]],
   ["yaraticilik", "Yaratıcılığı", ["Sıradan", "Biraz ilginç", "Yaratıcı", "Çok yaratıcı"]],
 ];
 
-function sorular(){
-  const s = YARGILAR.map(([ad,,yonerge]) => ({ad, tip:"noul", instructions: yonerge}));
+function sorular(sahne){
+  const s = ORTAK.map(([ad,,yonerge]) => ({ad, tip:"noul", instructions: yonerge}));
+  s.push({ad: sahne.gizli.ad, tip:"noul", instructions: sahne.gizli.yonerge});
   s.push({ad:"niyet", tip:"choice", instructions:"Oyuncunun bu hamledeki asıl niyeti ne?",
-    secenekler:{ikna:"Muhafızı sözle ikna etmeye çalışıyor", rusvet:"Maddi karşılık teklif ediyor",
+    secenekler:{ikna:"Sözle ikna etmeye çalışıyor", rusvet:"Maddi karşılık teklif ediyor",
                 tehdit:"Korkutmaya çalışıyor", kacis:"Konuşmadan geçmeye çalışıyor",
-                sohbet:"Sadece sohbet ediyor", anlamsiz:"Anlaşılmıyor"}});
-  for (const [ad, , seviyeler] of PUANLAR)
+                sohbet:"Sohbet ediyor", anlamsiz:"Anlaşılmıyor"}});
+  for (const [ad,,seviyeler] of PUANLAR)
     s.push({ad, tip:"score", instructions:`Oyuncunun bu hamlesinin ${ad.replace("_"," ")} değerlendirmesi.`, seviyeler});
   return s;
 }
-const SORU_SAYISI = sorular().length;
+const SORU_SAYISI = sorular(SAHNELER[0]).length;
 
-/* --- oyun dongusu -------------------------------------------------------- */
+/* --- kosu durumu --------------------------------------------------------- */
+const BASLANGIC = () => ({
+  bolum: 0, bitti: false, kazandi: false,
+  altin: 3, envanter: ["paslı bir anahtar", "3 altın"],
+  iddialar: [],            // {sahne, soz} — kosu boyunca sahiplendigi sozler
+  tumGecmis: [],           // {sahne, kim, soz}
+  sahneGecmis: [],
+  supheli: 0.10, moral: 0.30,
+  yakalanma: 0, hamleToplam: 0, yalanSayisi: 0,
+});
+let O = BASLANGIC();
+const S = () => SAHNELER[O.bolum];
+
+/* --- ciziciler ----------------------------------------------------------- */
 function repl(kim, soz, sinif){
   const d = document.createElement("div");
   d.className = "repl " + sinif;
-  d.innerHTML = sinif === "olay" ? esc(soz) : `<span class="kim">${esc(kim)}</span>${esc(soz)}`;
-  $("kayit").appendChild(d);
-  $("kayit").scrollTop = $("kayit").scrollHeight;
+  d.innerHTML = (sinif === "olay" || sinif === "yakalandi") ? soz : `<span class="kim">${esc(kim)}</span>${esc(soz)}`;
+  $("kayit").appendChild(d); $("kayit").scrollTop = $("kayit").scrollHeight;
 }
 
-function olcerleriCiz(){
+function yolCiz(){
+  $("yol").innerHTML = SAHNELER.map((s, i) =>
+    `<span class="adim ${i < O.bolum ? "gecildi" : i === O.bolum && !O.bitti ? "simdi" : ""}">
+      ${i < O.bolum ? "✓" : i + 1} ${esc(s.ad)}</span>`).join("");
+}
+
+function paneliCiz(){
   $("s-supheli").textContent = O.supheli.toFixed(2);
   $("s-moral").textContent = O.moral.toFixed(2);
   $("c-supheli").style.width = Math.round(O.supheli*100) + "%";
   $("c-moral").style.width = Math.round(O.moral*100) + "%";
+  $("npc-adi").textContent = S()?.npc ?? "—";
   $("durumlar").innerHTML =
-    `<span class="rozet">hamle ${Math.min(O.hamle,3)}/3</span>
-     <span class="rozet">${O.altin} altın</span>
-     <span class="rozet">paslı anahtar</span>` +
-    (O.duyulanIddialar.length ? `<span class="rozet">${O.duyulanIddialar.length} iddia duydu</span>` : "");
+    `<span class="rozet">${O.altin} altın</span>
+     <span class="rozet">paslı anahtar</span>
+     <span class="rozet">${O.hamleToplam} hamle</span>` +
+    (O.yalanSayisi ? `<span class="rozet tehlike">${O.yalanSayisi} yalan</span>` : "");
+  $("iddialar").innerHTML = O.iddialar.length
+    ? `<div class="grup">Sahiplendiğin sözler</div>` + O.iddialar.map(i =>
+        `<div title="${esc(i.soz)}"><small>${esc(i.sahne)}:</small> ${esc(i.soz)}</div>`).join("")
+    : "";
 }
 
+function sahneyiKur(){
+  const s = S();
+  $("sahne-adi").textContent = `${O.bolum + 1}. ${s.ad}`;
+  $("sahne").innerHTML = s.sahne;
+  O.sahneGecmis = [];
+  O.supheli = Math.min(0.9, 0.10 + O.yalanSayisi * 0.05);
+  O.moral = Math.max(0.05, 0.30 - O.yalanSayisi * 0.04);
+  yolCiz(); paneliCiz();
+  repl("", s.girisRepl, "olay");
+}
+
+/* --- bir hamle ----------------------------------------------------------- */
 async function hamle(soz){
-  O.hamle++;
+  const s = S();
+  O.hamleToplam++;
   repl("Sen", soz, "sen");
   $("gonder").disabled = true; $("soz").disabled = true;
   $("yargi").innerHTML = `<div class="bos">${SORU_SAYISI} yargı tek çağrıda…</div>`;
 
   const state = {
-    sahne: "Zindan kapısı. Muhafız gece vardiyasında, uykusuz ve aç. Yanında boş bir tas var.",
-    muhafiz: {uykulu: true, ac: true, rusvet_aldi: false,
-              supheli_mi: O.supheli > 0.5, tutumu: O.moral > 0.55 ? "yumuşamış" : "mesafeli"},
-    oyuncu_envanteri: ["paslı bir anahtar", `${O.altin} altın`],
-    oyuncunun_sahip_olmadiklari: ["kralın mührü", "resmî belge", "askerî rütbe", "silah"],
-    konusma_gecmisi: O.gecmis.map(g => `${g.kim}: ${g.soz}`),
+    sahne: `${s.ad}. ${s.npc} ile konuşuyorsun.`,
+    karsindaki: {ad: s.npc, ...s.npcDurum,
+                 supheli_mi: O.supheli > 0.5, tutumu: O.moral > 0.55 ? "yumuşamış" : "mesafeli"},
+    oyuncu_envanteri: O.envanter,
+    oyuncunun_sahip_olmadiklari: ["kralın mührü", "resmî belge", "askerî rütbe", "silah", "hücre anahtarı"],
+    bu_kosuda_soyledikleri: O.iddialar.map(i => `${i.sahne}: ${i.soz}`),
+    bu_sahnedeki_konusma: O.sahneGecmis.map(g => `${g.kim}: ${g.soz}`),
     oyuncunun_son_sozu: soz,
   };
 
   let y;
   try {
     const r = await fetch("/api/oyun", {method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({state, sorular: sorular()})});
+      body: JSON.stringify({state, sorular: sorular(s)})});
     y = await r.json();
     if (!r.ok) throw new Error(y.detail ?? "hata");
   } catch(e){
-    $("yargi").innerHTML = `<div class="bos">Olmadı: ${esc(agHatasi(e))}</div>`;
+    $("yargi").innerHTML = `<div class="bos">${esc(agHatasi(e))}</div>`;
     $("gonder").disabled = false; $("soz").disabled = false; return;
   }
 
-  const c = y.cevaplar;
-  const n = (a) => c[a]?.deger ?? 0;
-  const p = (a) => c[a]?.skor ?? 0;
+  const c = y.cevaplar, n = a => c[a]?.deger ?? 0, p = a => c[a]?.skor ?? 0;
   const niyet = c.niyet?.secim ?? "anlamsiz";
-
-  /* ---- KURALLAR: hepsi kodda, hepsi acik ---- */
   const kurallar = [];
   const uygula = (kosul, metin, etki) => { if (kosul){ kurallar.push(metin); etki(); } };
+  const itirafEtti = n("durust_itiraf") > 0.6;
 
-  uygula(n("yalan") > 0.65, `yalan ${n("yalan").toFixed(2)} > 0.65 → şüphe +0.25`,
-         () => O.supheli += 0.25);
-  uygula(n("tehdit") > 0.6, `tehdit ${n("tehdit").toFixed(2)} > 0.6 → şüphe +0.30, tutum −0.20`,
+  /* --- KURALLAR: hepsi kodda --- */
+  uygula(n("yalan") > 0.65 && !itirafEtti, `yalan ${n("yalan").toFixed(2)} → şüphe +0.22`,
+         () => { O.supheli += 0.22; O.yalanSayisi++; });
+
+  // Sahneler arasi celiski: oyunun can damari.
+  //
+  // AMA: durustce itiraf etmek de teknik olarak "onceki sozunle celismek"tir.
+  // Ikisi birden yanarsa itiraf eden oyuncu cezalandirilmis olur. Itiraf varsa
+  // celiski cezasi uygulanmaz — yakalanmak ile kendin soylemek ayri seyler.
+  let yakalandi = false;
+  if (n("celiski_gecmis") > 0.6 && itirafEtti)
+    kurallar.push(`çelişki ${n("celiski_gecmis").toFixed(2)} var ama itiraf ${n("durust_itiraf").toFixed(2)} → ceza yok`);
+  uygula(n("celiski_gecmis") > 0.6 && !itirafEtti,
+         `geçmişle çelişki ${n("celiski_gecmis").toFixed(2)} → şüphe +0.40 (ağır)`,
+         () => { O.supheli += 0.40; O.yakalanma++; yakalandi = true; });
+
+  uygula(n("tehdit") > 0.6, `tehdit ${n("tehdit").toFixed(2)} → şüphe +0.30, tutum −0.20`,
          () => { O.supheli += 0.30; O.moral -= 0.20; });
-  uygula(n("kacis") > 0.6, `zorla geçiş ${n("kacis").toFixed(2)} > 0.6 → şüphe +0.35`,
+  uygula(n("kacis") > 0.6, `zorla geçiş ${n("kacis").toFixed(2)} → şüphe +0.35`,
          () => O.supheli += 0.35);
-  uygula(n("anlamsiz") > 0.6, `anlamsız ${n("anlamsiz").toFixed(2)} > 0.6 → tutum −0.05`,
+  uygula(n("anlamsiz") > 0.6, `anlamsız ${n("anlamsiz").toFixed(2)} → tutum −0.05`,
          () => O.moral -= 0.05);
-  uygula(n("tekrar") > 0.6, `tekrar ${n("tekrar").toFixed(2)} > 0.6 → ikna sayılmıyor`, () => {});
-  uygula(n("kibar") > 0.6, `kibar ${n("kibar").toFixed(2)} > 0.6 → tutum +0.08`,
+  uygula(n("kibar") > 0.6, `kibar ${n("kibar").toFixed(2)} → tutum +0.08`,
          () => O.moral += 0.08);
-  uygula(n("kisisel") > 0.6, `muhafızın hâline değindi ${n("kisisel").toFixed(2)} → tutum +0.25, şüphe −0.10`,
-         () => { O.moral += 0.25; O.supheli -= 0.10; });
-  uygula(n("somut") > 0.6 && n("yalan") < 0.4,
-         `somut ${n("somut").toFixed(2)} ve yalan düşük → şüphe −0.12`,
+  uygula(n("durust_itiraf") > 0.6,
+         `dürüst itiraf ${n("durust_itiraf").toFixed(2)} → şüphe −0.25, tutum +0.15`,
+         () => { O.supheli -= 0.25; O.moral += 0.15; });
+  uygula(n("somut") > 0.6 && n("yalan") < 0.4, `somut ${n("somut").toFixed(2)} → şüphe −0.12`,
          () => O.supheli -= 0.12);
 
-  // Rusvet: KOD sayiyi karsilastirir. Jev sadece "rusvet teklif etti mi" der.
+  const gizliYandi = n(s.gizli.ad) > 0.6;
+  uygula(gizliYandi, `${s.gizli.etiket.toLowerCase()} ${n(s.gizli.ad).toFixed(2)} → tutum ${s.gizli.etki.moral > 0 ? "+" : ""}${s.gizli.etki.moral}, şüphe ${s.gizli.etki.supheli}`,
+         () => { O.moral += s.gizli.etki.moral; O.supheli += s.gizli.etki.supheli; });
+
+  // Rusvet: KOD sayiyi karsilastirir.
   let rusvetNotu = null;
-  if (n("rusvet") > 0.6 || niyet === "rusvet"){
-    if (O.altin >= O.rusvetIstenen){
-      kurallar.push(`rüşvet: ${O.altin} altın ≥ ${O.rusvetIstenen} istenen → kabul`);
-      O.gecti = true;
+  if (n("rusvet") > 0.6){
+    if (O.altin >= s.rusvetIstenen){
+      kurallar.push(`rüşvet: ${O.altin} altın ≥ ${s.rusvetIstenen} → kabul`);
       rusvetNotu = "kabul";
     } else {
-      kurallar.push(`rüşvet: ${O.altin} altın < ${O.rusvetIstenen} istenen → yetersiz (şüphe +0.10)`);
-      O.supheli += 0.10;
-      rusvetNotu = "yetersiz";
+      kurallar.push(`rüşvet: ${O.altin} altın < ${s.rusvetIstenen} → reddedildi`);
+      O.supheli += 0.08; rusvetNotu = "az";
     }
   }
 
   const iknaEtkin = n("tekrar") < 0.6 ? p("ikna_edicilik") : 0;
-  const esik = O.moral > 0.55 ? 2.2 : 3.0;          // tutum yumusadiysa esik duser
-  if (!O.gecti && iknaEtkin >= esik && O.supheli < 0.55){
+  if (n("tekrar") > 0.6) kurallar.push(`tekrar ${n("tekrar").toFixed(2)} → ikna sayılmıyor`);
+  const esik = O.moral > 0.55 ? 2.2 : 3.0;
+
+  let gecti = rusvetNotu === "kabul";
+  if (!gecti && iknaEtkin >= esik && O.supheli < 0.55){
     kurallar.push(`ikna ${iknaEtkin.toFixed(2)} ≥ eşik ${esik.toFixed(1)} ve şüphe ${O.supheli.toFixed(2)} < 0.55 → geçtin`);
-    O.gecti = true;
+    gecti = true;
   }
 
   O.supheli = Math.max(0, Math.min(1, O.supheli));
   O.moral = Math.max(0, Math.min(1, O.moral));
-  if (O.supheli >= 0.85){ O.alarm = true; kurallar.push(`şüphe ${O.supheli.toFixed(2)} ≥ 0.85 → alarm`); }
 
-  O.gecmis.push({kim:"Oyuncu", soz});
-  if (n("yalan") > 0.5) O.duyulanIddialar.push(soz.slice(0,40));
+  /* --- hafiza: sahiplenilen sozler --- */
+  if (n("yeni_bilgi") > 0.6 || n("yalan") > 0.5)
+    O.iddialar.push({sahne: s.ad, soz: soz.length > 70 ? soz.slice(0,70) + "…" : soz});
+  O.sahneGecmis.push({kim:"Oyuncu", soz});
+  O.tumGecmis.push({sahne:s.ad, kim:"Oyuncu", soz});
 
-  /* ---- muhafizin tepkisi: KOD secer, uydurma metin uretilmiyor ---- */
+  /* --- tepki --- */
+  const R = s.replikler;
   const tepki =
-    O.gecti && rusvetNotu === "kabul" ? "Muhafız avucunu açar, altınları sayar ve başıyla kapıyı işaret eder." :
-    O.gecti ? "Muhafız bir süre sessiz kalır, sonra kenara çekilir. “Çabuk ol.”" :
-    O.alarm ? "Muhafız ayağa fırlar. “NÖBETÇİ! BURAYA!”" :
-    n("tehdit") > 0.6 ? "Muhafızın eli kabzaya gider. “Bir daha söyle bakayım.”" :
-    n("kacis") > 0.6 ? "Muhafız önünü keser. “Nereye?”" :
-    rusvetNotu === "yetersiz" ? "Muhafız altınlara bakar, burun kıvırır. “Bu kadarına vardiyamı satmam.”" :
-    n("kisisel") > 0.6 ? "Muhafızın omuzları gevşer. “…uzun gece, evet. Neyse, anlat bakalım.”" :
-    n("tekrar") > 0.6 ? "Muhafız iç geçirir. “Bunu zaten söyledin.”" :
-    n("yalan") > 0.65 ? "Muhafız gözlerini kısar. “Öyle mi? Göster bakalım.”" :
-    n("anlamsiz") > 0.6 ? "Muhafız sana boş boş bakar." :
-    "Muhafız tabureye yaslanır. “Devam et.”";
-  repl("Muhafız", tepki, "o");
-  O.gecmis.push({kim:"Muhafız", soz:tepki});
+    gecti && rusvetNotu === "kabul" ? R.rusvet || R.gecti :
+    gecti ? R.gecti :
+    yakalandi ? `${s.npc} durur. “Az önce başka bir şey söylemiştin.”` :
+    n("tehdit") > 0.6 ? R.tehdit :
+    rusvetNotu === "az" ? R.rusvetAz :
+    gizliYandi ? R.gizli :
+    n("yalan") > 0.65 ? R.yalan :
+    n("anlamsiz") > 0.6 ? `${s.npc} sana boş boş bakar.` :
+    n("tekrar") > 0.6 ? `${s.npc} iç geçirir. “Bunu zaten söyledin.”` :
+    R.notr;
+  repl(s.npc, tepki, "o");
+  O.sahneGecmis.push({kim:s.npc, soz:tepki});
+  O.tumGecmis.push({sahne:s.ad, kim:s.npc, soz:tepki});
 
-  if (!O.gecti && !O.alarm && O.hamle >= 3){
-    O.alarm = true;
-    repl("", "Üç hamlen de bitti. Muhafız doğrulur: “Yeter. Geri dön.”", "olay");
+  if (yakalandi){
+    const onceki = O.iddialar.find(i => i.sahne !== s.ad);
+    repl("", `⚠ <b>Yakalandın.</b> ${esc(s.npc)}, ${onceki ? `<i>“${esc(onceki.soz)}”</i> dediğin` : "daha önce söylediğin"} sözle çeliştiğini fark etti.`, "yakalandi");
   }
 
-  olcerleriCiz();
-  yargiCiz(c, kurallar, y, niyet);
+  paneliCiz();
+  yargiCiz(c, kurallar, y, niyet, s);
 
-  if (O.gecti || O.alarm){
-    const d = document.createElement("div");
-    d.className = "son " + (O.gecti ? "kazandin" : "kaybettin");
-    d.innerHTML = O.gecti
-      ? `<b>Geçtin.</b>${O.hamle} hamlede. Şüphe ${O.supheli.toFixed(2)}, tutum ${O.moral.toFixed(2)}.`
-      : `<b>Olmadı.</b>Şüphe ${O.supheli.toFixed(2)}'e çıktı. “Baştan” ile başka bir yol dene.`;
-    $("kayit").appendChild(d);
-    $("kayit").scrollTop = $("kayit").scrollHeight;
-    $("soz").disabled = true;
-  } else {
-    $("gonder").disabled = false; $("soz").disabled = false; $("soz").focus();
+  if (O.supheli >= 0.85){ bitir(false); return; }
+  if (gecti){
+    repl("", s.gecis, "olay");
+    O.bolum++;
+    if (O.bolum >= SAHNELER.length){ bitir(true); return; }
+    setTimeout(() => { sahneyiKur(); $("gonder").disabled = false; $("soz").disabled = false; $("soz").focus(); }, 700);
+    return;
   }
+  $("gonder").disabled = false; $("soz").disabled = false; $("soz").focus();
 }
 
-function yargiCiz(c, kurallar, y, niyet){
-  const satir = ([ad, etiket, , iyiMi]) => {
-    const v = c[ad]?.deger ?? 0;
-    const yandi = v > 0.6;
+function bitir(kazandi){
+  O.bitti = kazandi ? false : true; O.kazandi = kazandi;
+  yolCiz();
+  const d = document.createElement("div");
+  d.className = "son " + (kazandi ? "kazandin" : "kaybettin");
+  d.innerHTML = kazandi
+    ? `<b>Yedinci hücredesin.</b>Üç kapıyı da geçtin.
+       <ul><li>${O.hamleToplam} hamle</li><li>${O.yalanSayisi} yalan${O.yalanSayisi ? "" : " — hiç yalan söylemedin"}</li>
+       <li>${O.yakalanma} kez çelişkiye düştün</li><li>${O.altin} altın kaldı</li></ul>`
+    : `<b>Yakayı ele verdin.</b>${S()?.npc ?? "Nöbetçi"} alarmı verdi.
+       <ul><li>${O.bolum} kapı geçtin</li><li>${O.hamleToplam} hamle</li>
+       <li>${O.yalanSayisi} yalan, ${O.yakalanma} çelişki</li></ul>
+       “Baştan” ile başka bir yol dene — yalan söylemeden de geçilebiliyor.`;
+  $("kayit").appendChild(d); $("kayit").scrollTop = $("kayit").scrollHeight;
+  $("soz").disabled = true; $("gonder").disabled = true;
+}
+
+function yargiCiz(c, kurallar, y, niyet, s){
+  const satirlar = [...ORTAK, [s.gizli.ad, s.gizli.etiket, "", true]].map(([ad, etiket,, iyiMi]) => {
+    const v = c[ad]?.deger ?? 0, yandi = v > 0.6;
     const sinif = !yandi ? "sonuk" : (iyiMi === true ? "iyi" : iyiMi === false ? "yandi" : "");
     const im = yandi ? (iyiMi === true ? "+" : iyiMi === false ? "!" : "•") : "·";
-    return `<div class="yg ${sinif}"><span class="im">${im}</span><span>${etiket}</span>
+    return `<div class="yg ${sinif}"><span class="im">${im}</span><span>${esc(etiket)}</span>
       <span class="d">${v.toFixed(2)}</span></div>`;
-  };
+  }).join("");
   const puanlar = PUANLAR.map(([ad, etiket]) => {
-    const s = c[ad]; if (!s) return "";
-    const enUst = Object.keys(s.seviye).length - 1;
+    const q = c[ad]; if (!q) return "";
+    const enUst = Object.keys(q.seviye).length - 1;
     return `<div class="yg sonuk" style="color:var(--ink-2)"><span class="im">•</span>
-      <span>${etiket}</span><span class="d">${s.skor.toFixed(1)}/${enUst}</span></div>`;
+      <span>${etiket}</span><span class="d">${q.skor.toFixed(1)}/${enUst}</span></div>`;
   }).join("");
 
   $("yargi").innerHTML = `
     <div class="grup">Niyet</div>
     <div class="yg sonuk" style="color:var(--ink)"><span class="im">→</span>
       <span>${esc(niyet)}</span><span class="d">${(c.niyet?.guven ?? 0).toFixed(2)}</span></div>
-    <div class="grup">Gözlemler</div>
-    ${YARGILAR.map(satir).join("")}
+    <div class="grup">Gözlemler</div>${satirlar}
     <div class="grup">Puanlar</div>${puanlar}
     <div class="grup">Kodun uyguladığı kurallar</div>
     <div class="kural">${kurallar.length ? kurallar.map(k => "• " + esc(k)).join("<br>") : "• hiçbir kural tetiklenmedi"}</div>
@@ -409,12 +533,10 @@ function yeniden(){
   $("kayit").innerHTML = "";
   $("yargi").innerHTML = `<div class="bos">Bir şey söyle.<br>Söylediğin ${SORU_SAYISI} açıdan değerlendirilecek.</div>`;
   $("soz").disabled = false; $("gonder").disabled = false; $("soz").value = "";
-  olcerleriCiz();
-  repl("", "Muhafız seni fark eder ama kıpırdamaz.", "olay");
-  $("soz").focus();
+  sahneyiKur(); $("soz").focus();
 }
 $("yeniden").onclick = yeniden;
-$("gonder").onclick = () => { const s = $("soz").value.trim(); if (s){ $("soz").value = ""; hamle(s); } };
+$("gonder").onclick = () => { const v = $("soz").value.trim(); if (v){ $("soz").value = ""; hamle(v); } };
 $("soz").addEventListener("keydown", e => { if (e.key === "Enter") $("gonder").click(); });
 yeniden();
 </script>
