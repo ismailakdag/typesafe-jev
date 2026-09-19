@@ -318,7 +318,7 @@ async def analyze_stream(req: AnalyzeRequest) -> AsyncIterator[str]:
                     )
                 except Exception as error:  # ag, kota, dogrulama — ilani atlamak yerine bildir
                     return {"type": "karar_hata", "id": ilan["id"], "baslik": ilan["baslik"], "mesaj": str(error)}
-                karar = analyzer.karar_ver(cevap, kat, ekler)
+                karar = analyzer.karar_ver(cevap, kat, ekler, ilan)
                 olcum = analyzer.olcum(t0, cevap.usage)
                 return {
                     "type": "karar",
@@ -590,7 +590,7 @@ async def degerlendir(body: HizliIstek) -> dict[str, Any]:
         cevap = await client.system_one(state, sorular)
     t_yanit = time.perf_counter()
 
-    karar = analyzer.karar_ver(cevap, kat, ekler)
+    karar = analyzer.karar_ver(cevap, kat, ekler, ilan)
     t_karar = time.perf_counter()
 
     ms = lambda a, b: round((b - a) * 1000, 1)  # noqa: E731

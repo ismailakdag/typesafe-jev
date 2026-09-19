@@ -201,8 +201,11 @@ AGIRLIKLAR_VASITA = {
 }
 
 # Tek basina eleyen kosullar: (soru adi, etiket). Agirlikli skora karismazlar.
+#
+# hasar_celiskisi bilerek BURADA DEGIL: celiskiyi kod, govde semasiyla metnin
+# beyanini karsilastirarak kesin olarak kuruyor (bkz. analyzer.karar_ver).
+# Modele sorulunca surekli 0.5 civarinda kaliyor ve her ilan insana dusuyordu.
 BAYRAKLAR_VASITA = [
-    ("hasar_celiskisi", "ilan hasar şemasıyla çelişiyor"),
     ("agir_hasar_imasi", "ağır hasar ima ediliyor"),
     ("ticari_kullanim", "ticari kullanım belirtisi"),
 ]

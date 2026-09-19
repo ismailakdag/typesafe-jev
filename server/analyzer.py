@@ -28,7 +28,7 @@ from server.sorular_vasita import AGIRLIKLAR_VASITA, BAYRAKLAR_VASITA, sorular_v
 USD_PER_INPUT_TOKEN = 0.042 / 1_000_000
 
 BAYRAK_ESIGI = 0.6
-KARARSIZ_ALT = 0.35
+KARARSIZ_ALT = 0.48
 SKOR_ESIGI = 0.55
 GUVEN_ESIGI = 0.55
 
@@ -271,7 +271,12 @@ class Karar:
     terimler: list[dict[str, Any]] = field(default_factory=list)
 
 
-def karar_ver(cevaplar: Any, kategori: str = "emlak", ekler: list[dict[str, Any]] | None = None) -> Karar:
+def karar_ver(
+    cevaplar: Any,
+    kategori: str = "emlak",
+    ekler: list[dict[str, Any]] | None = None,
+    ilan: dict[str, Any] | None = None,
+) -> Karar:
     nouls, scores, choices = cevaplar.nouls, cevaplar.scores, cevaplar.choices
     bayrak_tanimlari = bayraklar_tanimi(kategori, ekler)
     w = agirliklar(kategori, ekler)
@@ -304,6 +309,32 @@ def karar_ver(cevaplar: Any, kategori: str = "emlak", ekler: list[dict[str, Any]
         if tetik and "kiracılı olabilir" not in bayraklar:
             bayraklar.append("metin kiracılı teslim diyor")
 
+    # Vasita hasar kapisi — KOD karari, model karari degil.
+    #
+    # Once modele "ilan semayla celisiyor mu" diye Noul soruyordu ve bu surekli
+    # 0.5 civarinda kaliyordu: baslik "hasar kaydi yok" derken (tramer kaydi
+    # gercekten yok) aciklama degisen parcalari kabul edebiliyor. Model hakli
+    # olarak ikircikli kaliyor, her ilan insana dusuyordu.
+    #
+    # Oysa sema zaten yapilandirilmis veri. Celiskiyi kod kesin olarak kurar:
+    # metin "tamamen hasarsiz" diyorsa VE semada orijinal disi panel varsa celiski
+    # vardir. Metin kismi kabul ediyorsa celiski yoktur, panel sayisi kac olursa olsun.
+    beyan = choices.get("hasar_beyani")
+    hasar = (ilan or {}).get("hasar") or {}
+    orijinal_disi = hasar.get("orijinal_disi")
+    if beyan is not None and orijinal_disi is not None:
+        hasarsiz_iddia = beyan.choice == "tamamen_hasarsiz" and beyan.confidence > 0.6
+        tetik = hasarsiz_iddia and orijinal_disi > 0
+        kapilar.append({
+            "tur": "bayrak", "ad": "hasar_beyani", "etiket": "ilan hasar şemasıyla çelişiyor",
+            "deger": float(orijinal_disi), "esik": 0,
+            "tetikledi": tetik, "secim": beyan.choice,
+            "kosul": "metin tamamen hasarsız diyor ve şemada orijinal dışı panel var",
+            "not": hasar.get("ozet"),
+        })
+        if tetik:
+            bayraklar.append(f"metin hasarsız diyor ama {orijinal_disi} panel orijinal değil")
+
     # --- 2. agirlikli skor
     skor = 0.0
     terimler: list[dict[str, Any]] = []
@@ -334,7 +365,7 @@ def karar_ver(cevaplar: Any, kategori: str = "emlak", ekler: list[dict[str, Any]
         if tetik:
             belirsiz.append("satıcı dili belirsiz")
 
-    for ad, etiket in (("metin_yetersiz", "ilan metni yetersiz"), ("bakim_kaniti_yok", "bakım bilgisi yok")):
+    for ad, etiket in (("metin_yetersiz", "ilan metni yetersiz"),):
         if ad not in nouls:
             continue
         deger = nouls[ad].noul

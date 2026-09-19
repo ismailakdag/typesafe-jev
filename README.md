@@ -1,88 +1,156 @@
-# typesafe-jev
+# İlan Eleme — sahibinden ilanları için yapay zekâ destekli ön eleme
 
-sahibinden ilanlarını tarayıcıda yakalayıp TypeSafe (Jev) ile eleyen yerel araç.
+Gezdiğin ilanı tek tıkla yapılandırılmış veriye çevirir, **TypeSafe (Jev)** ile
+değerlendirir ve *favoriye değer / emin değil / değmez* der. Kararı nasıl verdiğini
+adım adım izleyebilirsin.
 
-Üç parça:
-
-| Parça | Ne yapar |
-|---|---|
-| `extension/` | Chrome eklentisi — gezdiğin ilanı tek tıkla yapılandırır, sayfada anlık karar verir |
-| `server/` | Yerel arşiv + eleme sunucusu (`127.0.0.1:8765`), veri makineden çıkmaz |
-| `tools/` | Kaydedilmiş bir sayfa üzerinde çıkarımı siteye dokunmadan test eden koşum |
-
-## Başlatma
+Her şey kendi bilgisayarında çalışır. Tek istisna: değerlendirme sırasında ilan
+metni TypeSafe API'sine gider.
 
 ```
-basla.cmd
+[1] YAKALA     Chrome eklentisi  →  sayfadaki her alan, konum, açıklama, foto
+[2] YARGILA    Jev               →  22 soru, tek çağrı, paralel
+[3] KARAR VER  kod               →  kesin filtreler + kırmızı bayraklar + ağırlıklı skor
 ```
 
-Çift tıklamak da yeter. `uv` PATH'te değilse bilinen kurulum yerine bakar.
+Emlak ve vasıta için ayrı soru setleri var; kategori sayfadan otomatik anlaşılır.
 
-Elle başlatmak istersen:
+---
 
+## Kurulum
+
+### 1. uv kur
+
+Python'u da kendisi indirir, ayrıca Python kurmana gerek yok.
+
+```powershell
+irm https://astral.sh/uv/install.ps1 | iex
 ```
+
+Bittiğinde **PowerShell penceresini kapat, yenisini aç** — kurulum PATH'e ekliyor
+ama açık pencereler bunu görmez. Kontrol: `uv --version`
+
+### 2. Depoyu al
+
+```bash
+git clone https://github.com/ismailakdag/typesafe-jev.git
+cd typesafe-jev
+```
+
+### 3. Sunucuyu başlat
+
+`basla.cmd` dosyasına çift tıkla, ya da:
+
+```bash
 uv run python -m server.app
 ```
 
-Sonra `http://127.0.0.1:8765`.
+İlk açılışta bağımlılıklar iner. Sonra `http://127.0.0.1:8765`.
 
-> **`uv` bulunamadı diyorsa:** büyük ihtimalle kurulu ama terminalin eski.
-> `C:\Users\<kullanıcı>\.local\bin` kullanıcı PATH'ine kurulumda ekleniyor,
-> o an açık olan terminaller bunu görmez. **Yeni bir terminal aç.** Ya da
-> mevcut pencerede bir kez:
-> ```
-> $env:Path = [Environment]::GetEnvironmentVariable("Path","Machine") + ';' + [Environment]::GetEnvironmentVariable("Path","User")
-> ```
+### 4. Chrome eklentisini yükle
 
-## Eklentiyi kurma
+`chrome://extensions` → **Geliştirici modu** → **Paketlenmemiş öğe yükle** →
+depodaki `extension` klasörünü seç.
 
-`chrome://extensions` → Geliştirici modu → **Paketlenmemiş öğe yükle** → `extension/`
+### 5. API anahtarını gir
 
-Eklenti dosyaları değiştiğinde aynı sayfadan **↻ yenile**.
+https://console.typesafe.ai/keys adresinden anahtar al, panelde
+**Ayarlar** → yapıştır → **Kaydet** → **Doğrula**.
 
-## API anahtarı
+Anahtar yerel `.env` dosyasına yazılır, depoya girmez.
 
-Panelde **Ayarlar** → anahtarı yapıştır → **Kaydet** → **Doğrula**.
-`.env` dosyasına yazılır, git'e girmez, yanıtlarda maskelenir.
+Ayrıntılı anlatım ve sorun giderme: **[KURULUM.md](KURULUM.md)**
+
+---
 
 ## Kullanım
 
-- **Sayfada anlık karar** — ilan sayfasındaki panelden *Değerlendir*. Tek çağrı,
-  8 soru, sonuç + süre + token + maliyet.
-- **Arşive kaydet** — aynı panelden. Aynı ilan tekrar kaydedilirse üzerine
-  yazılmaz, yeni sürüm eklenir (fiyat geçmişi).
-- **Toplu eleme** — panelde kesin sınırları ve profili ayarla, *Elemeyi çalıştır*.
-  Önce kod filtresi (bedava, ~0.02 ms), kalanlar Jev'e gider.
-- **Karar akışı** — hem ilan sayfasındaki panelden hem eleme panelindeki karttan
-  *Nasıl karar verdi?*. 22 soru eş zamanlı dolar (gerçekten öyle dönüyorlar),
-  sonra kod kapıları sırayla açılır ve ağırlıklı skor terim terim birikir.
-  Gösterim hızı 1x / 2x / 5x / 10x. Üstteki çubuk ölçülmüş gerçek süreleri
-  gösterir; model bekleyişi yavaşlatmada tavanlanır, boş ekrana baktırmasın diye.
-- **Arşiv yönetimi** — eklenti popup'ından ara, detay aç, ilana git, sil.
+| | |
+|---|---|
+| **Anlık karar** | İlan sayfasındaki panelden *Değerlendir*. Sonuç + süre + token + maliyet. |
+| **Karar akışı** | *Nasıl karar verdi?* — sorular eş zamanlı dolar, kod kapıları sırayla açılır, skor terim terim birikir. Hız: 1x / 2x / 5x / 10x. |
+| **Arşive kaydet** | Aynı ilan tekrar kaydedilirse üzerine yazılmaz, yeni sürüm eklenir — fiyat geçmişi. |
+| **Toplu eleme** | Panelde kesin sınırlar + profil → *Elemeyi çalıştır*. Kod filtresi anlık ve bedava; kalanlar Jev'e gider. |
+| **Kendi soruların** | Panelde *Sorular*. Evet/hayır, dereceli veya seçenekli. Yerleşikler değişmez. |
+| **Arşiv yönetimi** | Eklenti popup'ından ara, detay aç, ilana git, sil. |
 
-## Ölçülen maliyet
-
-Bir ilan, 22 soru, tek çağrı (ölçülmüş):
-
-| | 8 soru | 22 soru |
-|---|---|---|
-| süre | ~750 ms | ~980 ms |
-| girdi tokeni | 2.171 | 3.548 |
-| maliyet | $0.000091 | $0.000149 |
-| 1000 ilan | $0.09 | $0.15 |
-
-Ölçüm, "soru eklemek bedava" varsayımını çürüttü. Dağılım şöyle: ilan metni +
-alanlar + profil ~**1.380 token**, her soru kendi `instructions` ve `criteria`
-metniyle ~**100 token**. 22 soruda maliyetin ~%60'ı soruların kendi metni.
-
-Değişmeyen şey gecikme: 22 soru için 22 değil **tek istek** gider, hepsi paralel
-cevaplanır. Kısaltılacak yer varsa önce uzun `criteria` açıklamalarıdır.
-
-Gerçek sayılar `data/kullanim.json` defterinde birikir.
+---
 
 ## İş bölümü
 
-Sayısal ve kesin olan her şey **kodda**: fiyat, m², aidat, mesafe, poligon.
-Jev'e yalnızca metinden çıkan yargılar sorulur: çelişki, abartı, satıcı dili,
-profile uygunluk. Nihai karar yine kodda — kırmızı bayraklar ayrı koşul,
-tercihler ağırlıklı skor.
+Bu ayrım projenin özü:
+
+**Kodda kalanlar** — fiyat, m², km, model yılı, aidat, mesafe, harita alanı.
+Hepsi kesin ve sayısal. Jev sayılarda zayıf; üstelik bu filtreler zaten kesin,
+modele sormak hem yanlış hem gereksiz maliyet.
+
+**Jev'e sorulanlar** — yalnızca metinden çıkan yargılar: çelişki, abartı, satıcı
+dili, teslim durumu, profile uygunluk. Bunları kod yapamaz.
+
+**Kararı yine kod verir** — kırmızı bayraklar ayrı koşuldur, ağırlıklı skora
+karışmaz. Ciddi bir kusur, yüksek bakım puanıyla telafi edilemez.
+
+Örnek: bir araba ilanının başlığı *"hasar kaydı yok"* diyebilir. Gövde şemasındaki
+boyalı/değişen paneller sayfadan **yapısal olarak** okunur ve modele açıkça
+"ikisini karşılaştır" diye sorulur — metinden tahmin etmesi beklenmez.
+
+---
+
+## Ölçülen maliyet
+
+Bir ilan, 22 soru, tek çağrı:
+
+| | 8 soru | 22 soru |
+|---|---|---|
+| süre | ~750 ms | ~900 ms |
+| girdi tokeni | 2.171 | 3.548 |
+| maliyet | $0.000091 | $0.000149 |
+| 1000 ilan | $0.09 | **$0.15** |
+
+Dağılım: ilan metni + alanlar + profil ~**1.380 token**, her soru kendi
+`instructions` ve `criteria` metniyle ~**100 token**. 22 soruda maliyetin ~%60'ı
+soruların kendi metni — soru eklemek bedava değil, ucuz.
+
+Değişmeyen şey gecikme: 22 soru için 22 değil **tek istek** gider.
+
+Gerçek sayılar `data/kullanim.json` defterinde birikir.
+
+---
+
+## Kapsam ve sınırlar
+
+- **Kazıma yapmaz.** Eklenti gezmez, sayfa açmaz, arka planda istek atmaz.
+  Yalnızca sen bakarken, sen tıklayınca, o anki sayfayı okur. Otomatik
+  değerlendirme seçeneği kapalı gelir. Kişisel kullanım için tasarlandı.
+- **Veri yerelde kalır.** Sunucu `127.0.0.1`'e bağlanır. Yakalanan ilanlar
+  `data/` altında durur ve depoya girmez.
+- **Jev metin üretmez.** Tipli yargı ve olasılık döner; ilan metnindeki talimat
+  görünümlü ifadeler bu yüzden işlemez.
+- **Türkçe** Jev'in birincil eğitim dili değil. Kendi içeriğinde test et ve
+  `confidence` değerlerine bak.
+- Yargılar karar desteğidir, karar değil. Mesaj atmak, teklif vermek, kapora
+  ödemek gibi geri dönüşü olmayan adımlar insanda kalmalı.
+
+---
+
+## Geliştirme
+
+```bash
+# Kaydedilmiş bir sayfa üzerinde çıkarımı siteye dokunmadan test et
+node tools/test_extract.mjs data/ornek/sayfa.html "https://..."
+
+# Aynı sayfayı Jev'e gönder ve kararı yazdır
+node tools/test_extract.mjs data/ornek/sayfa.html "https://..." --degerlendir
+
+# Paylaşılabilir zip üret (.env ve kişisel veri hariç)
+uv run python tools/paketle.py
+```
+
+Çıkarım CSS sınıf adlarına değil sayfanın **şekline** dayanır (etiket/değer
+çiftleri, JSON-LD, meta), konum için dört strateji Türkiye sınırlarıyla
+doğrulanır ve ham sayfa metni her zaman saklanır — yapılandırma bir alanı
+kaçırsa da veri kaybolmaz.
+
+## Lisans
+
+MIT
