@@ -4,8 +4,9 @@ __pycache__/
 .env
 node_modules/
 out/
-data/ilanlar/
 
 *.zip
 
-data/ornek/
+# data/ altindaki her sey kisisel: arsiv, kullanim defteri,
+# profil, ek sorular, kayitli ornek sayfalar.
+data/
