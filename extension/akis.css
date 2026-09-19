@@ -150,3 +150,29 @@
   #iy-akis .iy-lane.dolu{border-color:#256abf; color:#cde2fb}
   #iy-akis .iy-kapi.acik{background:#3a1f1f}
 }
+
+/* ---- kapi gruplari, canli ozet ve kisa devre gosterimi ---- */
+#iy-akis .iy-ozet{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0 4px;
+  font-size:12px;font-weight:600}
+#iy-akis .iy-ozet-bos{color:var(--a-muted);font-weight:400}
+#iy-akis .iy-ozet-ok{color:var(--a-good)}
+#iy-akis .iy-ozet-bad{color:var(--a-critical)}
+
+#iy-akis .iy-grup{margin-top:12px}
+#iy-akis .iy-grup-bas{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  font-size:11.5px;margin-bottom:5px}
+#iy-akis .iy-grup-bas b{font-weight:650}
+#iy-akis .iy-grup-bas small{color:var(--a-muted);font-size:10.5px}
+
+#iy-akis .iy-kapi-not{display:block;color:var(--a-muted);font-size:10px;margin-top:1px}
+
+#iy-akis .iy-kapi.acik{animation:iy-damga .32s cubic-bezier(.2,1.4,.4,1)}
+@keyframes iy-damga{0%{transform:scale(.97)}55%{transform:scale(1.015)}100%{transform:none}}
+
+#iy-akis .iy-skor{position:relative;transition:opacity .35s}
+#iy-akis .iy-skor.atlandi{opacity:.38}
+#iy-akis .iy-skor.atlandi .iy-terim,
+#iy-akis .iy-skor.atlandi .iy-toplam b{text-decoration:line-through}
+#iy-akis .iy-atlandi-not{display:inline-block;margin-bottom:7px;padding:4px 10px;
+  border-radius:999px;background:var(--a-critical);color:#fff;font-size:11px;font-weight:650;
+  animation:iy-pop .3s cubic-bezier(.2,1.3,.4,1)}

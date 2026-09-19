@@ -174,8 +174,16 @@
         <section class="iy-adim" id="iy-a4">
           <h4><span class="iy-no">4</span> Kod karar veriyor</h4>
           <div class="iy-akis-not">Bu kısım modelde değil, kodda. Eşikler ve ağırlıklar senin.</div>
-          <div class="iy-kapilar">${k.kapilar.map(kapiSatir).join("")}</div>
-          <div class="iy-skor">
+          <div class="iy-ozet" id="iy-ozet"><span class="iy-ozet-bos">kontroller çalışıyor…</span></div>
+          <div class="iy-grup">
+            <div class="iy-grup-bas"><b>Kırmızı bayraklar</b><small>biri bile açılırsa skora bakılmadan elenir</small></div>
+            <div class="iy-kapilar">${k.kapilar.filter((g) => g.tur === "bayrak").map(kapiSatir).join("")}</div>
+          </div>
+          <div class="iy-grup">
+            <div class="iy-grup-bas"><b>Belirsizlik kontrolleri</b><small>açılırsa karar sana devredilir</small></div>
+            <div class="iy-kapilar">${k.kapilar.filter((g) => g.tur !== "bayrak").map(kapiSatir).join("")}</div>
+          </div>
+          <div class="iy-skor" id="iy-skor">
             <div class="iy-akis-etiket">ağırlıklı skor</div>
             <div class="iy-terimler">${k.terimler.map(terimSatir).join("")}</div>
             <div class="iy-toplam">
@@ -229,7 +237,9 @@
     return `<div class="iy-kapi" data-kapi="${g.ad}-${g.tur}">
       <span class="iy-kapi-durum">·</span>
       <span class="iy-kapi-ad">${esc(g.etiket)}<small>${yon}</small></span>
-      <span class="iy-kapi-deger">${g.deger.toFixed(2)} <small>tetik: ${esc(g.kosul ?? "> " + g.esik)}</small></span></div>`;
+      <span class="iy-kapi-deger">${g.deger.toFixed(2)} <small>tetik: ${esc(g.kosul ?? "> " + g.esik)}</small>
+        ${g.not ? `<small class="iy-kapi-not">${esc(g.not)}</small>` : ""}
+        ${g.secim ? `<small class="iy-kapi-not">seçim: ${esc(g.secim)}</small>` : ""}</span></div>`;
   }
 
   function terimSatir(t) {
@@ -255,6 +265,9 @@
     kat.querySelectorAll("[data-fill]").forEach((i) => (i.style.width = "0"));
     kat.querySelectorAll(".iy-kapi").forEach((g) => g.classList.remove("acik", "kapali", "gorunur"));
     kat.querySelectorAll(".iy-terim").forEach((t) => t.classList.remove("gorunur"));
+    kat.querySelector("#iy-skor")?.classList.remove("atlandi");
+    kat.querySelector("#iy-skor .iy-atlandi-not")?.remove();
+    kat.querySelector("#iy-ozet").innerHTML = '<span class="iy-ozet-bos">kontroller çalışıyor…</span>';
     kat.querySelector("#iy-toplam-i").style.width = "0";
     kat.querySelector("#iy-toplam-v").textContent = "0.00";
     kat.querySelector("#iy-final").innerHTML = "";
@@ -295,11 +308,37 @@
 
     // 4 — kod kararı: burasi gercekten sirali calisir
     adim("iy-a4");
+    let gecti = 0;
+    let takildi = 0;
+    let bayrakAcildi = false;
+    const ozet = kat.querySelector("#iy-ozet");
+
     for (const g of kat.querySelectorAll(".iy-kapi")) {
       g.classList.add("gorunur");
-      const tetikledi = k.kapilar.find((x) => `${x.ad}-${x.tur}` === g.dataset.kapi)?.tetikledi;
+      const kapi = k.kapilar.find((x) => `${x.ad}-${x.tur}` === g.dataset.kapi);
+      const tetikledi = kapi?.tetikledi;
       g.classList.add(tetikledi ? "acik" : "kapali");
       g.querySelector(".iy-kapi-durum").textContent = tetikledi ? "✕" : "✓";
+      if (tetikledi) {
+        takildi++;
+        if (kapi.tur === "bayrak") bayrakAcildi = true;
+      } else {
+        gecti++;
+      }
+      ozet.innerHTML =
+        `<span class="iy-ozet-ok">✓ ${gecti} kontrolden geçti</span>` +
+        (takildi ? `<span class="iy-ozet-bad">✕ ${takildi} kontrolde takıldı</span>` : "");
+      await bekle(TABAN.kapi);
+      if (bitti()) return;
+    }
+
+    // Kirmizi bayrak acildiysa agirlikli skor hic hesaba katilmaz. Bunu
+    // gostermek, "neden elendi" sorusunun cevabini tek bakista veriyor.
+    if (bayrakAcildi) {
+      const skor = kat.querySelector("#iy-skor");
+      skor.classList.add("atlandi");
+      skor.insertAdjacentHTML("afterbegin",
+        '<div class="iy-atlandi-not">kırmızı bayrak açıldı — skora bakılmadı</div>');
       await bekle(TABAN.kapi);
       if (bitti()) return;
     }
