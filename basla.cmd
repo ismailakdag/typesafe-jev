@@ -18,6 +18,21 @@ if not defined UV (
   exit /b 1
 )
 
+rem Port doluysa uvicorn'un yigin izi yerine anlasilir bir mesaj ver.
+netstat -ano | findstr /r /c:"127.0.0.1:8765 .* LISTENING" >nul
+if not errorlevel 1 (
+  echo.
+  echo   Sunucu ZATEN CALISIYOR:  http://127.0.0.1:8765
+  echo   Tarayicida bu adresi acman yeterli, yeniden baslatmaya gerek yok.
+  echo.
+  echo   Yeniden baslatmak istersen once onu calistiran pencerede Ctrl+C yap,
+  echo   ya da su komutla durdur:
+  echo     powershell -c "Stop-Process -Id (Get-NetTCPConnection -LocalPort 8765 -State Listen).OwningProcess -Force"
+  echo.
+  pause
+  exit /b 0
+)
+
 echo.
 echo   Ilan Eleme  -  http://127.0.0.1:8765
 echo   Tarayicida bu adresi ac. Durdurmak icin Ctrl+C.
