@@ -239,6 +239,20 @@ async def analiz(dosya: Path, dakika: float, eszamanli: int) -> None:
 # Derleme: kod tarafi, cagri yok
 # --------------------------------------------------------------------------- #
 
+def atilir(p: dict) -> bool:
+    """Kesme kurali. Atilacak: idari, tanitim, ya da dusuk yogunluk + tekrar/gecis.
+
+    Tek yerde duruyor: sunucu bunu ice aktarip ayni karari veriyor ve ayrica
+    nedenini yaziyor. Iki kopya olsa zamanla birbirinden ayrilirdi.
+    """
+    n = lambda a: p["nouls"].get(a, 0)                      # noqa: E731
+    s = lambda a: p["scores"].get(a, {}).get("skor", 0)     # noqa: E731
+    if n("idari") > 0.6 or n("tanitim") > 0.6:
+        return True
+    zayif = s("bilgi_yogunlugu") < 1.2 and s("ogretici_deger") < 1.2
+    return zayif and (n("tekrar") > 0.5 or n("gecis") > 0.5 or n("dolgu") > 0.5)
+
+
 def derle_veri(P: list[dict]) -> dict:
     """Parca yargilarindan bolum/indeks/kesme cikarir. Cagri yok, saf kod.
 
@@ -283,14 +297,7 @@ def derle_veri(P: list[dict]) -> dict:
     arastirmalar = [p for p in P if n(p, "arastirma") > 0.65]
 
     # --- 3. KESME LISTESI ---------------------------------------------------
-    # Atilacak: idari, tanitim, ya da dusuk yogunluk + tekrar/gecis
-    def at(p):
-        if n(p, "idari") > 0.6 or n(p, "tanitim") > 0.6:
-            return True
-        zayif = s(p, "bilgi_yogunlugu") < 1.2 and s(p, "ogretici_deger") < 1.2
-        return zayif and (n(p, "tekrar") > 0.5 or n(p, "gecis") > 0.5 or n(p, "dolgu") > 0.5)
-
-    tut = [p for p in P if not at(p)]
+    tut = [p for p in P if not atilir(p)]
     # Ardisik tutulanlari araliklara birlestir
     araliklar = []
     for p in tut:

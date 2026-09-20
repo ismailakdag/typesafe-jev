@@ -807,6 +807,16 @@ def transkript_tahmin(body: TranskriptIstek) -> dict[str, Any]:
     return transkript.tahmin([c.model_dump() for c in body.cue], body.dakika)
 
 
+@app.get("/api/transkript/sorular")
+def transkript_sorulari() -> dict[str, Any]:
+    """Sorulan 26 sorunun kendisi ve listelerin esikleri.
+
+    "Neye gore karar verdi" sorusunun cevabi ikiye ayriliyor: hangi soru
+    soruldu (burada) ve cevap hangi esige carpti (ESIKLER).
+    """
+    return transkript.soru_dokumu()
+
+
 @app.post("/api/transkript")
 async def transkript_analiz(body: TranskriptIstek) -> StreamingResponse:
     if not os.environ.get("TYPESAFE_API_KEY"):
