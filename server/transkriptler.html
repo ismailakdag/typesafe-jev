@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<title>Transkript analizleri</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{
+  --surface:#fff; --plane:#f4f5f7; --ink:#0f0f0f; --ink2:#5d6470; --line:#e2e5ea;
+  --seq:#2a78d6; --good:#0f9d58; --bad:#d03b3b;
+}
+@media (prefers-color-scheme:dark){
+  :root{--surface:#191b1f; --plane:#22252b; --ink:#eef0f3; --ink2:#9aa2ae;
+        --line:#2f333a; --seq:#6fa8ea; --good:#4cc74c; --bad:#e06565}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+     font:14px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+.kap{max-width:980px;margin:0 auto;padding:28px 20px 60px}
+h1{font-size:21px;margin:0 0 4px}
+.alt{color:var(--ink2);font-size:12.5px;margin-bottom:22px}
+.alt a{color:var(--seq)}
+
+.ozet{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.ozet div{flex:1;min-width:130px;background:var(--surface);border:1px solid var(--line);
+          border-radius:12px;padding:12px 14px}
+.ozet b{display:block;font-size:19px;font-variant-numeric:tabular-nums}
+.ozet span{font-size:11.5px;color:var(--ink2)}
+
+.kart{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+      padding:14px 16px;margin-bottom:10px}
+.kart-bas{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.kart h2{font-size:14.5px;margin:0;font-weight:650;flex:1;min-width:200px}
+.kart h2 a{color:inherit;text-decoration:none}
+.kart h2 a:hover{color:var(--seq)}
+.veri{display:flex;gap:16px;flex-wrap:wrap;margin-top:7px;
+      font-size:12px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.veri b{color:var(--ink);font-weight:600}
+.usd{color:var(--seq);font-weight:650}
+.dug{display:flex;gap:7px;margin-top:11px;flex-wrap:wrap}
+button{border:1px solid var(--line);border-radius:8px;padding:5px 11px;
+       background:var(--plane);color:var(--ink);font:inherit;font-size:12px;cursor:pointer}
+button:hover{filter:brightness(.97)}
+button.sil{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 35%,transparent)}
+a.dug-bag{border:1px solid var(--line);border-radius:8px;padding:5px 11px;
+          background:var(--plane);color:var(--ink);font-size:12px;text-decoration:none}
+
+.ayrinti{margin-top:12px;border-top:1px solid var(--line);padding-top:11px;display:none}
+.ayrinti.acik{display:block}
+.sekmeler{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px}
+.sekmeler button.sec{background:var(--ink);color:var(--surface);border-color:var(--ink);font-weight:600}
+.sekmeler i{font-style:normal;font-size:10px;opacity:.65;margin-left:5px}
+.liste{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:10px;
+       background:var(--plane)}
+.sat{display:flex;gap:10px;padding:7px 11px;align-items:baseline;
+     border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+.sat:last-child{border-bottom:0}
+.z{flex:none;font:11px ui-monospace,Consolas,monospace;color:var(--seq);font-weight:600}
+.z a{color:inherit;text-decoration:none}
+.z a:hover{text-decoration:underline}
+.m{flex:1;font-size:12px;overflow:hidden;display:-webkit-box;
+   -webkit-line-clamp:2;-webkit-box-orient:vertical}
+.p{flex:none;font-size:11px;color:var(--ink2);font-variant-numeric:tabular-nums}
+.rozet{display:inline-block;margin-left:5px;padding:0 5px;border-radius:4px;font-size:9.5px;
+       font-weight:700;text-transform:uppercase;
+       background:color-mix(in srgb,var(--good) 18%,transparent);color:var(--good)}
+.neden{display:inline-block;margin-left:5px;padding:0 5px;border-radius:4px;font-size:9.5px;
+       font-weight:600;background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+.kural{font-size:11px;color:var(--ink2);padding:7px 10px;margin-bottom:8px;border-radius:8px;
+       border-left:3px solid var(--seq);background:color-mix(in srgb,var(--seq) 8%,transparent)}
+.bos{padding:26px;text-align:center;color:var(--ink2);font-size:13px}
+.hata{background:color-mix(in srgb,var(--bad) 9%,var(--surface));
+      border:1px solid color-mix(in srgb,var(--bad) 40%,transparent);
+      border-radius:12px;padding:14px 16px}
+</style>
+
+<div class="kap">
+  <h1>Transkript analizleri</h1>
+  <div class="alt">Yapılan her analiz burada duruyor — aynı video için ikinci kez
+    ödemeye gerek yok. <a href="/">İlan arşivi</a></div>
+  <div id="ozet" class="ozet"></div>
+  <div id="liste"><div class="bos">yükleniyor…</div></div>
+</div>
+
+<script>
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const sayi = (n) => Number(n || 0).toLocaleString("tr-TR");
+const zaman = (sn) => {
+  const s = Math.floor(sn || 0);
+  return `${String(Math.floor(s / 3600)).padStart(2, "0")}:` +
+         `${String(Math.floor(s % 3600 / 60)).padStart(2, "0")}:` +
+         `${String(s % 60).padStart(2, "0")}`;
+};
+const tarih = (iso) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(+d) ? "—" : d.toLocaleString("tr-TR", {dateStyle: "medium", timeStyle: "short"});
+};
+
+const SEKMELER = [
+  ["bolumler", "Bölümler"], ["yontemler", "Yöntemler"], ["alistirmalar", "Alıştırma"],
+  ["ornekler", "Örnek"], ["arastirmalar", "Araştırma"], ["kesme", "Kesme"], ["atilan", "Atılan"],
+];
+
+const yuklu = new Map();   // id -> sonuc
+
+async function basla() {
+  let d;
+  try {
+    d = await (await fetch("/api/transkript/kayitlar")).json();
+  } catch (e) {
+    document.getElementById("liste").innerHTML =
+      `<div class="hata"><b>Sunucuya ulaşılamadı</b><div>${esc(e.message)}</div></div>`;
+    return;
+  }
+  ciz(d.kayitlar);
+}
+
+function ciz(kayitlar) {
+  const ozet = document.getElementById("ozet");
+  const toplamSn = kayitlar.reduce((a, k) => a + (k.sure_sn || 0), 0);
+  // Maliyet yalnizca tutarı kaydedilen analizlerden toplanıyor: eski kayıtlarda
+  // bu alan yok ve hepsini 0 sayıp "$0.0000" yazmak yanıltıcı olurdu.
+  const tutarli = kayitlar.filter((k) => k.usd != null);
+  const toplamUsd = tutarli.reduce((a, k) => a + k.usd, 0);
+  ozet.innerHTML = `
+    <div><b>${kayitlar.length}</b><span>kayıtlı analiz</span></div>
+    <div><b>${(toplamSn / 3600).toFixed(1)} sa</b><span>işlenen video</span></div>
+    <div><b>${sayi(kayitlar.reduce((a, k) => a + (k.kelime || 0), 0))}</b><span>kelime</span></div>
+    <div>${tutarli.length
+      ? `<b class="usd">$${toplamUsd.toFixed(4)}</b><span>toplam maliyet${
+          tutarli.length < kayitlar.length ? ` (${tutarli.length}/${kayitlar.length} kayıtta)` : ""}</span>`
+      : `<b>—</b><span>tutar eski kayıtlarda tutulmuyordu</span>`}</div>`;
+
+  const liste = document.getElementById("liste");
+  if (!kayitlar.length) {
+    liste.innerHTML = `<div class="bos">Henüz analiz yok. YouTube'da bir video açıp
+      eklentiden <b>Analiz et</b> dediğinde buraya düşecek.</div>`;
+    return;
+  }
+  liste.innerHTML = kayitlar.map((k) => {
+    const bag = k.video_id ? `https://www.youtube.com/watch?v=${encodeURIComponent(k.video_id)}` : "";
+    return `
+    <div class="kart" data-id="${esc(k.id)}">
+      <div class="kart-bas">
+        <h2>${bag ? `<a href="${esc(bag)}" target="_blank" rel="noopener">${esc(k.kaynak)}</a>`
+                  : esc(k.kaynak)}</h2>
+      </div>
+      <div class="veri">
+        <span><b>${zaman(k.sure_sn)}</b> süre</span>
+        <span><b>${sayi(k.parca)}</b> parça · ${k.dakika ?? "?"} dk</span>
+        <span><b>${sayi(k.kelime)}</b> kelime</span>
+        ${k.usd != null ? `<span class="usd">$${Number(k.usd).toFixed(4)}</span>` : ""}
+        <span>${tarih(k.kaydedildi || k.degisti)}</span>
+      </div>
+      <div class="dug">
+        <button data-ac>Analizi aç ▸</button>
+        ${bag ? `<a class="dug-bag" href="${esc(bag)}" target="_blank" rel="noopener">Videoyu aç</a>` : ""}
+        <button data-json>Ham yargılar .json</button>
+        <button class="sil" data-sil>Sil</button>
+      </div>
+      <div class="ayrinti"></div>
+    </div>`;
+  }).join("");
+
+  liste.querySelectorAll(".kart").forEach((kart) => {
+    const id = kart.dataset.id;
+    kart.querySelector("[data-ac]").onclick = (e) => ac(kart, id, e.target);
+    kart.querySelector("[data-sil]").onclick = () => sil(kart, id);
+    kart.querySelector("[data-json]").onclick = () => indirJson(id);
+  });
+}
+
+async function ac(kart, id, dugme) {
+  const ay = kart.querySelector(".ayrinti");
+  if (ay.classList.contains("acik")) {
+    ay.classList.remove("acik");
+    dugme.textContent = "Analizi aç ▸";
+    return;
+  }
+  dugme.textContent = "Analizi kapat ▾";
+  ay.classList.add("acik");
+  if (!yuklu.has(id)) {
+    ay.innerHTML = `<div class="bos">yükleniyor…</div>`;
+    try {
+      const d = await (await fetch(`/api/transkript/kayit/${encodeURIComponent(id)}`)).json();
+      yuklu.set(id, d);
+    } catch (e) {
+      ay.innerHTML = `<div class="hata">${esc(e.message)}</div>`;
+      return;
+    }
+  }
+  cizAyrinti(ay, yuklu.get(id), "bolumler");
+}
+
+function cizAyrinti(ay, d, sekme) {
+  const r = d.sonuc;
+  const vid = d.video_id;
+  ay.innerHTML = `
+    <div class="sekmeler">
+      ${SEKMELER.map(([k, ad]) => {
+        const n = k === "kesme" ? r.kesme.aralik.length : (r[k] || []).length;
+        return `<button data-s="${k}"${k === sekme ? ' class="sec"' : ""}>${ad}<i>${n}</i></button>`;
+      }).join("")}
+    </div>
+    <div class="kural" ${r.esikler[sekme] ? "" : 'style="display:none"'}>${esc(r.esikler[sekme] || "")}</div>
+    <div class="liste">${satirlar(r, sekme, vid)}</div>`;
+  ay.querySelector(".sekmeler").onclick = (e) => {
+    const b = e.target.closest("button");
+    if (b) cizAyrinti(ay, d, b.dataset.s);
+  };
+}
+
+const bag = (vid, t) => vid ? `https://www.youtube.com/watch?v=${vid}&t=${Math.floor(t)}s` : "#";
+const damga = (vid, t) => `<span class="z"><a href="${bag(vid, t)}" target="_blank"
+  rel="noopener">${zaman(t)}</a></span>`;
+
+function satirlar(r, sekme, vid) {
+  if (sekme === "kesme") {
+    const k = r.kesme;
+    return `<div class="sat"><span class="m">${(k.toplam_sn / 3600).toFixed(2)} sa →
+      <b>${(k.tutulan_sn / 3600).toFixed(2)} sa</b> — %${k.yuzde} kalıyor</span></div>` +
+      k.aralik.map((a, i) => `<div class="sat">${damga(vid, a.bas)}
+        <span class="m">aralık ${i + 1} · ${((a.son - a.bas) / 60).toFixed(0)} dk</span></div>`).join("");
+  }
+  if (sekme === "bolumler") {
+    return r.bolumler.map((b) => `<div class="sat">${damga(vid, b.t)}
+      <span class="m"><b>${b.no}.</b> ${esc(b.turler.join(", "))} · ${b.dakika} dk
+        ${b.yontem ? '<span class="rozet">yöntem</span>' : ""}</span>
+      <span class="p">${b.puan.toFixed(1)}</span></div>`).join("");
+  }
+  if (sekme === "atilan") {
+    return r.atilan.length ? r.atilan.map((p) => `<div class="sat">${damga(vid, p.t)}
+      <span class="m">${esc(p.metin.split(/\s+/).slice(0, 22).join(" "))}…
+        <span class="neden">${esc(p.neden)}</span></span></div>`).join("")
+      : `<div class="bos">hiçbir parça atılmadı</div>`;
+  }
+  const liste = r[sekme] || [];
+  return liste.length ? liste.map((p) => `<div class="sat">${damga(vid, p.t)}
+    <span class="m">${esc(p.metin.split(/\s+/).slice(0, 24).join(" "))}…</span>
+    <span class="p">${p.puan.toFixed(1)}</span></div>`).join("")
+    : `<div class="bos">bu videoda bulunmadı</div>`;
+}
+
+async function indirJson(id) {
+  const d = yuklu.get(id) || await (await fetch(`/api/transkript/kayit/${encodeURIComponent(id)}`)).json();
+  yuklu.set(id, d);
+  const kan = new Blob([JSON.stringify(d, null, 1)], {type: "application/json;charset=utf-8"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(kan);
+  a.download = `${id}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+async function sil(kart, id) {
+  if (!confirm(`"${id}" analizi silinsin mi?\n\nHam yargılar da diskten kalkar; ` +
+               `aynı videoyu yeniden analiz etmek tekrar ücretli olur.`)) return;
+  const r = await fetch(`/api/transkript/kayit/${encodeURIComponent(id)}`, {method: "DELETE"});
+  if (!r.ok) return alert("silinemedi");
+  yuklu.delete(id);
+  basla();
+}
+
+basla();
+</script>
+</html>

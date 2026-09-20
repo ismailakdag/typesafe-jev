@@ -29,7 +29,7 @@ import json
 import re
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -52,10 +52,11 @@ KALIP = re.compile(r"^(\d{2}):(\d{2}):(\d{2})[.,](\d{3})\s+(.*)$")
 @dataclass
 class Parca:
     no: int
-    bas: float          # saniye
-    son: float
+    bas: float          # saniye — bu parcanin ilk cue'sunun zamani
+    son: float          # bir SONRAKI parcanin bas'i (yari acik aralik)
     metin: str
     kelime: int
+    cueler: list[tuple[float, str]] = field(default_factory=list)
 
 
 def zaman(s: float) -> str:
@@ -76,21 +77,39 @@ def cue_oku(dosya: Path) -> list[tuple[float, str]]:
 
 
 def parcala(cueler: list[tuple[float, str]], dakika: float) -> list[Parca]:
-    """Sabit sureli parcalara boler. Sinirlar cue sinirlarina oturur."""
+    """Sabit sureli parcalara boler. Sinirlar cue sinirlarina oturur.
+
+    Aralik yari acik: [bas, son). Siniri asan cue YENI parcayi baslatir, eskisine
+    katilmaz. Onceki surumde o cue hem onceki parcanin metnine giriyor hem de
+    sonraki parcanin bas'i oluyordu; her sinirda bir cue'luk kayma vardi ve
+    "su parcaya atla" dedigimizde bir onceki parcanin son cumlesi calmaya
+    basliyordu.
+
+    Cue'lar parcanin icinde saklaniyor: disa aktarirken metnin neresinin hangi
+    saniyeye denk geldigi yaziabilsin. Tek bir baslangic damgasi, iki dakikalik
+    bir metin blogu icin yeterli degil.
+    """
     if not cueler:
         return []
     adim = dakika * 60
     parcalar: list[Parca] = []
-    bas = cueler[0][0]
-    tampon: list[str] = []
-    ilk = bas
-    for i, (t, metin) in enumerate(cueler):
-        tampon.append(metin)
-        son_mu = i == len(cueler) - 1
-        if t - ilk >= adim or son_mu:
-            gövde = " ".join(tampon)
-            parcalar.append(Parca(len(parcalar), ilk, t, gövde, len(gövde.split())))
+    tampon: list[tuple[float, str]] = []
+    ilk = cueler[0][0]
+
+    def ekle(son: float) -> None:
+        govde = " ".join(m for _, m in tampon)
+        parcalar.append(Parca(len(parcalar), ilk, son, govde, len(govde.split()), list(tampon)))
+
+    for t, metin in cueler:
+        if tampon and t - ilk >= adim:
+            ekle(t)
             tampon, ilk = [], t
+        tampon.append((t, metin))
+    if tampon:
+        # Son parcanin bitisi icin elimizde yalnizca son cue'nun BASLANGICI var;
+        # cue sureleri transkriptte yok. Ortalama cue araligini ekliyoruz.
+        ort = ((cueler[-1][0] - cueler[0][0]) / max(1, len(cueler) - 1)) if len(cueler) > 1 else 0
+        ekle(cueler[-1][0] + ort)
     return parcalar
 
 

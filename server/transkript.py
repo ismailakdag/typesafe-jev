@@ -12,6 +12,7 @@ import asyncio
 import json
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator
 
@@ -160,6 +161,9 @@ async def analiz_akisi(
             sonuc[p.no] = {
                 "no": p.no, "bas": p.bas, "son": p.son, "kelime": p.kelime,
                 "metin": p.metin,
+                # Cue'lar da dursun: disa aktarirken metnin neresi hangi saniye
+                # yaziabilsin, arsivden acilan kayitta da elimizde olsun.
+                "cue": [[round(c, 2), m] for c, m in p.cueler],
                 "nouls": {k: round(v.noul, 3) for k, v in r.nouls.items()},
                 "choices": {k: {"secim": v.choice, "guven": round(v.confidence, 3)}
                             for k, v in r.choices.items()},
@@ -186,23 +190,21 @@ async def analiz_akisi(
         yield satir({"tip": "hata", "mesaj": "hiçbir parça analiz edilemedi"})
         return
 
-    # Ham yargilar diske: derle/disa komutlari bunu okuyabilsin.
+    # Ham yargilar diske: hem derle/disa komutlari hem arsiv sayfasi okuyabilsin.
     ad = f"yt-{video_id}" if video_id else "yt-bilinmeyen"
     yol = CIKTI / f"{ad}.json"
+    ozet = {
+        "parca": len(P), "hata": hata, "saniye": round(gecen, 1),
+        "token": toplam_tok, "usd": round(toplam_tok * USD_MTOK / 1_000_000, 4),
+        "dosya": str(yol),
+    }
     yol.write_text(json.dumps(
         {"kaynak": baslik or ad, "video_id": video_id, "dakika": dakika,
-         "soru_sayisi": arac.SORU_SAYISI, "parcalar": P},
+         "soru_sayisi": arac.SORU_SAYISI, "kaydedildi": datetime.now(timezone.utc).isoformat(),
+         "ozet": ozet, "parcalar": P},
         ensure_ascii=False), encoding="utf-8")
 
-    yield satir({
-        "tip": "bitti",
-        "ozet": {
-            "parca": len(P), "hata": hata, "saniye": round(gecen, 1),
-            "token": toplam_tok, "usd": round(toplam_tok * USD_MTOK / 1_000_000, 4),
-            "dosya": str(yol),
-        },
-        "sonuc": derle(P, cue),
-    })
+    yield satir({"tip": "bitti", "ozet": ozet, "sonuc": derle(P, cue)})
 
 
 async def _hepsi(calis, parcalar, kuyruk) -> None:
@@ -276,6 +278,14 @@ def derle(P: list[dict], cue: list[dict] | None = None) -> dict[str, Any]:
     atilan = [{**_kayit(p, s), "neden": _atma_nedeni(p, n, s)}
               for p in P if p["no"] not in tutulan]
 
+    # Cue'lar YALNIZCA tumu icinde: diger listeler ayni parcayi no ile esliyor.
+    # Her listeye kopyalasak transkript bes kez gidip gelirdi.
+    tumu = []
+    for p in P:
+        k = _kayit(p, s)
+        k["cue"] = p.get("cue", [])
+        tumu.append(k)
+
     return {
         "parca_sayisi": len(P),
         "bolumler": bolumler,
@@ -284,7 +294,7 @@ def derle(P: list[dict], cue: list[dict] | None = None) -> dict[str, Any]:
         "ornekler": liste(d["ornekler"]),
         "arastirmalar": liste(d["arastirmalar"]),
         "atilan": atilan,
-        "tumu": [_kayit(p, s) for p in P],
+        "tumu": tumu,
         "kesme": {
             "toplam_sn": round(d["toplam"]),
             "tutulan_sn": round(d["tutulan"]),
@@ -309,3 +319,76 @@ def _atma_nedeni(p: dict, n, s) -> str:
     ad = {"tekrar": "tekrar", "gecis": "geçiş", "dolgu": "dolgu"}[hangi]
     return (f"düşük yoğunluk ({s(p, 'bilgi_yogunlugu'):.1f}/3, "
             f"öğretici {s(p, 'ogretici_deger'):.1f}/3) + {ad} ({n(p, hangi):.2f})")
+
+
+# --------------------------------------------------------------------------- #
+# Arsiv: yapilan analizler diskte duruyor, tekrar para odenmesin
+# --------------------------------------------------------------------------- #
+
+def _kayit_yolu(kid: str) -> Path:
+    """Dosya adini disaridan gelen metne birakmıyoruz: yalnizca guvenli
+    karakterler ve CIKTI altinda kalma sarti."""
+    temiz = "".join(c for c in kid if c.isalnum() or c in "-_")[:120]
+    yol = (CIKTI / f"{temiz}.json").resolve()
+    if not temiz or CIKTI.resolve() not in yol.parents:
+        raise ValueError("geçersiz kayıt adı")
+    return yol
+
+
+def kayitlar() -> list[dict[str, Any]]:
+    """Kaydedilmis analizlerin ozeti — yeniden eskiye."""
+    out = []
+    for yol in CIKTI.glob("*.json"):
+        if yol.name.endswith("-kesme.json"):
+            continue
+        try:
+            d = json.loads(yol.read_text(encoding="utf-8"))
+            P = d["parcalar"]
+        except (json.JSONDecodeError, KeyError, OSError):
+            continue
+        ozet = d.get("ozet") or {}
+        out.append({
+            "id": yol.stem,
+            "kaynak": d.get("kaynak", yol.stem),
+            "video_id": d.get("video_id", ""),
+            "dakika": d.get("dakika"),
+            "parca": len(P),
+            "sure_sn": round(P[-1]["son"] - P[0]["bas"]) if P else 0,
+            "kelime": sum(p.get("kelime", 0) for p in P),
+            "token": ozet.get("token"),
+            "usd": ozet.get("usd"),
+            "kaydedildi": d.get("kaydedildi"),
+            "degisti": datetime.fromtimestamp(yol.stat().st_mtime, timezone.utc).isoformat(),
+        })
+    return sorted(out, key=lambda x: x["kaydedildi"] or x["degisti"], reverse=True)
+
+
+def kayit_oku(kid: str) -> dict[str, Any] | None:
+    yol = _kayit_yolu(kid)
+    if not yol.exists():
+        return None
+    d = json.loads(yol.read_text(encoding="utf-8"))
+    P = d["parcalar"]
+    # Kaydedilmis cue'lardan tam listeyi geri kuruyoruz: eklenti sayfayi
+    # yeniden okumadan da disa aktarabilsin.
+    cue = [{"t": c[0], "metin": c[1]} for p in P for c in p.get("cue", [])]
+    return {
+        "id": yol.stem,
+        "kaynak": d.get("kaynak", yol.stem),
+        "video_id": d.get("video_id", ""),
+        "dakika": d.get("dakika"),
+        "kaydedildi": d.get("kaydedildi"),
+        "ozet": d.get("ozet") or {"parca": len(P), "hata": 0, "saniye": 0,
+                                  "token": 0, "usd": 0, "dosya": str(yol)},
+        "sonuc": derle(P, cue or None),
+    }
+
+
+def kayit_sil(kid: str) -> bool:
+    yol = _kayit_yolu(kid)
+    if not yol.exists():
+        return False
+    yol.unlink()
+    for ek in ("-indeks.md", "-kesme.json", "-yontem.md", "-alistirma.md", "-tut.md"):
+        (CIKTI / f"{yol.stem}{ek}").unlink(missing_ok=True)
+    return True

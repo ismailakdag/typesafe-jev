@@ -817,6 +817,34 @@ def transkript_sorulari() -> dict[str, Any]:
     return transkript.soru_dokumu()
 
 
+@app.get("/api/transkript/kayitlar")
+def transkript_kayitlar() -> dict[str, Any]:
+    """Yapilmis analizler diskte duruyor; ayni video icin ikinci kez odenmesin."""
+    return {"kayitlar": transkript.kayitlar()}
+
+
+@app.get("/api/transkript/kayit/{kid}")
+def transkript_kayit(kid: str) -> dict[str, Any]:
+    try:
+        d = transkript.kayit_oku(kid)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if d is None:
+        raise HTTPException(status_code=404, detail="kayıt yok")
+    return d
+
+
+@app.delete("/api/transkript/kayit/{kid}")
+def transkript_kayit_sil(kid: str) -> dict[str, Any]:
+    try:
+        silindi = transkript.kayit_sil(kid)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not silindi:
+        raise HTTPException(status_code=404, detail="kayıt yok")
+    return {"ok": True, "id": kid}
+
+
 @app.post("/api/transkript")
 async def transkript_analiz(body: TranskriptIstek) -> StreamingResponse:
     if not os.environ.get("TYPESAFE_API_KEY"):
@@ -841,6 +869,11 @@ async def transkript_analiz(body: TranskriptIstek) -> StreamingResponse:
             yield s
 
     return StreamingResponse(akis(), media_type="application/x-ndjson")
+
+
+@app.get("/transkriptler", response_class=HTMLResponse)
+def transkriptler_sayfasi() -> str:
+    return (Path(__file__).parent / "transkriptler.html").read_text(encoding="utf-8")
 
 
 if __name__ == "__main__":
