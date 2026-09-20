@@ -346,17 +346,104 @@ def derle(dosya: Path) -> None:
     print(f"kesme  : {kesme}")
 
 
+# --------------------------------------------------------------------------- #
+# Disa aktarma: secilen parcalarin transkript metni
+# --------------------------------------------------------------------------- #
+
+def disa(dosya: Path, mod: str) -> None:
+    """Ise yarar bulunan parcalarin METNINI bolum bolum yazar.
+
+    Uzerinde calisilacak ham malzeme bu: kendi notunu cikarmak, ozet yazmak,
+    derlemek icin. Metin kaynaktan oldugu gibi kopyalanir; arac metin uretmez.
+    """
+    yol = CIKTI / f"{dosya.stem}.json"
+    if not yol.exists():
+        sys.exit(f"Once analiz calistir: {yol} yok")
+    veri = json.loads(yol.read_text(encoding="utf-8"))
+    P = veri["parcalar"]
+    n = lambda p, a: p["nouls"].get(a, 0)                      # noqa: E731
+    s = lambda p, a: p["scores"].get(a, {}).get("skor", 0)     # noqa: E731
+
+    SUZGEC = {
+        # Yalnizca adlandirilabilir prosedur anlatan parcalar
+        "yontem": lambda p: n(p, "yontem") > 0.85,
+        # Dinleyiciye is dusen parcalar
+        "alistirma": lambda p: n(p, "alistirma") > 0.7,
+        # Kesme listesinin tuttugu her sey
+        "tut": lambda p: not (n(p, "idari") > 0.6 or n(p, "tanitim") > 0.6
+                              or (s(p, "bilgi_yogunlugu") < 1.2 and n(p, "tekrar") > 0.5)),
+        "hepsi": lambda p: True,
+    }
+    if mod not in SUZGEC:
+        sys.exit("mod: " + ", ".join(SUZGEC))
+    sec = SUZGEC[mod]
+
+    sinirlar = sorted({0} | {p["no"] for p in P
+                             if n(p, "konu_degisti") > 0.85 or n(p, "bolum_acilis") > 0.80})
+    bolum_no = {}
+    for i, b in enumerate(sinirlar):
+        son = sinirlar[i + 1] if i + 1 < len(sinirlar) else len(P)
+        for k in range(b, son):
+            bolum_no[k] = i + 1
+
+    sat = [
+        f"# {veri['kaynak']} — {mod}",
+        "",
+        f"Süzgeç: **{mod}** · {veri['dakika']} dakikalık dilimler",
+        "",
+        "> Metin kaynak transkriptten olduğu gibi alınmıştır; araç metin üretmez.",
+    ]
+    onceki_bolum = None
+    sayi = kelime = 0
+    for p in P:
+        if not sec(p):
+            continue
+        b = bolum_no.get(p["no"], 0)
+        if b != onceki_bolum:
+            sat += ["", f"## Bölüm {b}"]
+            onceki_bolum = b
+        etiket = []
+        if n(p, "yontem") > 0.85:
+            etiket.append("yöntem")
+        if n(p, "alistirma") > 0.7:
+            etiket.append("alıştırma")
+        if n(p, "adim_listesi") > 0.7:
+            etiket.append("liste")
+        if n(p, "arastirma") > 0.7:
+            etiket.append("araştırma")
+        if n(p, "ornek_hikaye") > 0.7:
+            etiket.append("örnek")
+        bas = f"**{zaman(p['bas'])}–{zaman(p['son'])}**"
+        if etiket:
+            bas += "  ·  _" + ", ".join(etiket) + "_"
+        bas += f"  ·  öğretici {s(p, 'ogretici_deger'):.1f}/3"
+        sat += ["", bas, "", p["metin"]]
+        sayi += 1
+        kelime += p["kelime"]
+
+    cikti = CIKTI / f"{dosya.stem}-{mod}.md"
+    cikti.write_text("\n".join(sat) + "\n", encoding="utf-8")
+    toplam = sum(x["kelime"] for x in P)
+    print(f"{sayi} parça, {kelime:,} kelime yazıldı")
+    print(f"kaynağın %{100 * kelime / toplam:.0f}'i")
+    print(cikti)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("komut", choices=["analiz", "derle"])
+    ap.add_argument("komut", choices=["analiz", "derle", "disa"])
     ap.add_argument("dosya", type=Path)
     ap.add_argument("--dakika", type=float, default=2.0)
     ap.add_argument("--esz", type=int, default=8)
+    ap.add_argument("--mod", default="yontem",
+                    help="disa: yontem | alistirma | tut | hepsi")
     a = ap.parse_args()
     if a.komut == "analiz":
         asyncio.run(analiz(a.dosya, a.dakika, a.esz))
-    else:
+    elif a.komut == "derle":
         derle(a.dosya)
+    else:
+        disa(a.dosya, a.mod)
 
 
 if __name__ == "__main__":
