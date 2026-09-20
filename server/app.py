@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typesafe_sdk import AsyncTypeSafeClient
 
-from server import analyzer
+from server import analyzer, transkript
 
 load_dotenv()
 
@@ -779,6 +779,58 @@ def akis(rid: str) -> str:
  ac();
 </script>
 </body></html>"""
+
+
+# --------------------------------------------------------------------------- #
+# Transkript analizi — YouTube eklentisi buraya gonderir
+# --------------------------------------------------------------------------- #
+
+
+class Cue(BaseModel):
+    t: float
+    metin: str
+
+
+class TranskriptIstek(BaseModel):
+    cue: list[Cue]
+    dakika: float = 2.0
+    eszamanlilik: int = 8
+    video_id: str = ""
+    baslik: str = ""
+
+
+@app.post("/api/transkript/tahmin")
+def transkript_tahmin(body: TranskriptIstek) -> dict[str, Any]:
+    """Tek bir cagri yapmadan once maliyeti soyler. Saf kod."""
+    if not body.cue:
+        raise HTTPException(status_code=400, detail="cue listesi boş")
+    return transkript.tahmin([c.model_dump() for c in body.cue], body.dakika)
+
+
+@app.post("/api/transkript")
+async def transkript_analiz(body: TranskriptIstek) -> StreamingResponse:
+    if not os.environ.get("TYPESAFE_API_KEY"):
+        raise HTTPException(status_code=400, detail="TYPESAFE_API_KEY ayarlanmamış")
+    if not body.cue:
+        raise HTTPException(status_code=400, detail="cue listesi boş")
+
+    async def akis() -> AsyncIterator[str]:
+        async for s in transkript.analiz_akisi(
+            [c.model_dump() for c in body.cue],
+            body.dakika, max(1, min(body.eszamanlilik, 32)),
+            body.video_id, body.baslik,
+        ):
+            # Maliyet defterini burada tutuyoruz: analiz modulu dosya bilmiyor.
+            try:
+                d = json.loads(s)
+                if d.get("tip") == "bitti":
+                    o = d["ozet"]
+                    ledger_yaz(o["token"], o["usd"], "transkript")
+            except (json.JSONDecodeError, KeyError):
+                pass
+            yield s
+
+    return StreamingResponse(akis(), media_type="application/x-ndjson")
 
 
 if __name__ == "__main__":

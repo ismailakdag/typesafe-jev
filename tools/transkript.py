@@ -239,14 +239,14 @@ async def analiz(dosya: Path, dakika: float, eszamanli: int) -> None:
 # Derleme: kod tarafi, cagri yok
 # --------------------------------------------------------------------------- #
 
-def derle(dosya: Path) -> None:
-    yol = CIKTI / f"{dosya.stem}.json"
-    if not yol.exists():
-        sys.exit(f"Önce analiz çalıştır: {yol} yok")
-    veri = json.loads(yol.read_text(encoding="utf-8"))
-    P = veri["parcalar"]
-    n = lambda p, a: p["nouls"].get(a, 0)          # noqa: E731
-    s = lambda p, a: p["scores"].get(a, {}).get("skor", 0)   # noqa: E731
+def derle_veri(P: list[dict]) -> dict:
+    """Parca yargilarindan bolum/indeks/kesme cikarir. Cagri yok, saf kod.
+
+    Esikler burada tek yerde duruyor: hem komut satiri araci hem de eklentinin
+    sunucusu bunu cagiriyor, yoksa ikisi zamanla birbirinden ayrilir.
+    """
+    n = lambda p, a: p["nouls"].get(a, 0)                      # noqa: E731
+    s = lambda p, a: p["scores"].get(a, {}).get("skor", 0)     # noqa: E731
 
     # --- 1. BOLUMLER: konu degisimi sinir, aralar birlestirilir -------------
     # Esikler olcumle secildi: yorumlardan gelen 24 gercek bolume karsi
@@ -301,6 +301,25 @@ def derle(dosya: Path) -> None:
 
     toplam = P[-1]["son"] - P[0]["bas"]
     tutulan = sum(a["son"] - a["bas"] for a in araliklar)
+
+    return {"bolumler": birlesik, "yontemler": yontemler, "alistirmalar": alistirmalar,
+            "ornekler": ornekler, "arastirmalar": arastirmalar, "araliklar": araliklar,
+            "toplam": toplam, "tutulan": tutulan}
+
+
+def derle(dosya: Path) -> None:
+    yol = CIKTI / f"{dosya.stem}.json"
+    if not yol.exists():
+        sys.exit(f"Önce analiz çalıştır: {yol} yok")
+    veri = json.loads(yol.read_text(encoding="utf-8"))
+    P = veri["parcalar"]
+    s = lambda p, a: p["scores"].get(a, {}).get("skor", 0)   # noqa: E731
+
+    d = derle_veri(P)
+    birlesik = d["bolumler"]
+    yontemler, alistirmalar = d["yontemler"], d["alistirmalar"]
+    ornekler, arastirmalar = d["ornekler"], d["arastirmalar"]
+    araliklar, toplam, tutulan = d["araliklar"], d["toplam"], d["tutulan"]
 
     # --- ciktilar -----------------------------------------------------------
     rapor = CIKTI / f"{dosya.stem}-indeks.md"
